@@ -1,9 +1,7 @@
 # MICA_NeuralMachineTranslation
 Team MICA's attempt at NMT
 
-Dataset: English to French
-Character Tutorial: https://github.com/nyu-dl/dl4mt-c2c
-General Tutorial: https://github.com/nyu-dl/dl4mt-tutorial
+Dataset: English to French: https://wit3.fbk.eu/mt.php?release=2016-01
 
 ## Todo: 
 - Data Processing https://wit3.fbk.eu/mt.php?release=2016-01 : Eduardo
@@ -19,3 +17,8 @@ General Tutorial: https://github.com/nyu-dl/dl4mt-tutorial
 
 - Next meeting: Thursday 
 
+## References:
+- Original BPE implementation: https://github.com/rsennrich/subword-nmt
+- Character level: https://github.com/nyu-dl/dl4mt-c2c
+- General Tutorial: https://github.com/nyu-dl/dl4mt-tutorial
+- This tutorial is supposed to be helpful (from  NLP reading list): https://devblogs.nvidia.com/parallelforall/introduction-neural-machine-translation-with-gpus/
