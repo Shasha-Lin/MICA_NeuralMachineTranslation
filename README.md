@@ -22,3 +22,4 @@ Dataset: English to French: https://wit3.fbk.eu/mt.php?release=2016-01
 - Character level: https://github.com/nyu-dl/dl4mt-c2c
 - General Tutorial: https://github.com/nyu-dl/dl4mt-tutorial
 - This tutorial is supposed to be helpful (from  NLP reading list): https://devblogs.nvidia.com/parallelforall/introduction-neural-machine-translation-with-gpus/
+- Pytorch implementation of attention translation models https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation.ipynb
