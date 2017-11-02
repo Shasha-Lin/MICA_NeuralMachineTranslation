@@ -19,7 +19,7 @@ Documentation of the code:
 2) Data Representation:
 
 - All the words in the sentence is converted to numbers (based on the index) and EOS symbol is attached at the end of the sentence.
-- Then, a batch of sentences is selected randomnly based on batch size. Note that, since the selection is being done reandomnly, we can have multiple instances of same sentence and zero instances of some sentences.
+- Then, a batch of sentences is selected randomnly based on batch size. Note that, since the selection is being done randomnly, we can have multiple instances of same sentence and zero instances of some sentences.
 - In scenarios where one sentence is larger than the translated sentence (in the training data), we PAD the remaining words in the shorter sentence with zero.
 
 3) Model Structure:
@@ -29,7 +29,7 @@ Documentation of the code:
 4) Loss Function:
 
 - The loss function is basically a softmax function which tries to maximize the probability of the predicted word (marked_cross_entropy.py). 
-- The loss function we need is not entirely available in Pytorch (as the loss function needs to be masked with an indicator matrix that neglects losses for words > length of the sentence. Remember that each sentence was reshaped to have length equal to the max_length in the batch) and was programmed manually by the author. I have included a detailed mechanism of loss function in the script: (link)
+- The loss function we need is not entirely available in Pytorch (as the loss function needs to be masked with an indicator matrix that neglects losses for words > length of the sentence. Remember that each sentence was reshaped to have length equal to the max_length in the batch) and was programmed manually by the author. I have included a detailed mechanism of loss function in the script: (https://github.com/sl4964/MICA_NeuralMachineTranslation/blob/master/model_1/masked_cross_entropy.py)
 
 
 5) Things to add:
