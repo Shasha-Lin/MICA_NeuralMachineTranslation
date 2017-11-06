@@ -92,10 +92,21 @@ This tokenizer calls the files in ```nonbreaking_prefixes```, which were also do
 ### BPE
 ---
 
-Finally, BPEs are learned from the train files and applied to valid, dev and test files. In this case, the main files ```apply_bpe.py``` and ```learn_bpe.py```are exact copies of https://github.com/rsennrich/subword-nmt. 
+BPEs are learned from the train files and applied to valid, dev and test files. In this case, the main files ```apply_bpe.py``` and ```learn_bpe.py```are exact copies of https://github.com/rsennrich/subword-nmt. 
 
 This files can be run with the following script: 
 ```sh
 $ bash BPE-runner.sh
 ```
 This outputs the files train.en.bpe and train.fr.bpe, which are the english and french BPE's learned from the data. After that, it applies them to the ".tok" files and outputs the files with termination ".tok.bpe". 
+
+### Model Prep - Making Pairs
+---
+
+Finally, pairs are build and exporter using ```file_merger.py```. To run it, just run the *runner* file, modifying local directories inside this shell file. 
+This files can be run with the following script: 
+```sh
+$ bash BPE-runner.sh
+```
+
+This file requires ```argparse``` to be installed locally.
