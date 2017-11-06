@@ -97,20 +97,23 @@ def normalize_string(s):
     return s
 
 
-def read_langs(lang1, lang2, reverse=False):
+def read_langs(lang1, lang2, term="txt", reverse=False, normalize=False):
     print("Reading lines...")
 
     # Read the file and split into lines
-	
-	# Attach the path here for the source and target language dataset
-    filename = '../%s-%s.txt' % (lang1, lang2)
+
+    # Attach the path here for the source and target language dataset
+    filename = './%s-%s.%s' % (lang1, lang2, term)
     # This creats the file directory name whichis used below
 
     # lines contains the data in form of a list 
     lines = open(filename).read().strip().split('\n')
 
     # Split every line into pairs and normalize
-    pairs = [[normalize_string(s) for s in l.split('\t')] for l in lines]
+    if normalize == True:
+        pairs = [[normalize_string(s) for s in l.split('\t')] for l in lines]
+    else: 
+        pairs = [[s for s in l.split('\t')] for l in lines]
 
     # Reverse pairs, make Lang instances
     if reverse:
