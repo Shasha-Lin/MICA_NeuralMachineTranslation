@@ -1,13 +1,15 @@
+# defines training loop 
 # Code source : https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation-batched.ipynb
 
 from Attn_Based_EN_DE import *
+import torch.nn as nn
 
 %matplotlib inline
 
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
 
-def train(input_batches, input_lengths, target_batches, target_lengths, encoder, decoder, encoder_optimizer, decoder_optimizer, max_length=MAX_LENGTH):
+def train(input_batches, input_lengths, target_batches, target_lengths, encoder, decoder, encoder_optimizer, decoder_optimizer,loss_criterion=None, max_length=MAX_LENGTH):
     
     # Zero gradients of both optimizers
     encoder_optimizer.zero_grad()
@@ -37,13 +39,20 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
 
         all_decoder_outputs[t] = decoder_output
         decoder_input = target_batches[t] # Next input is current target
+    
+    
+    # changing Loss to negative log likelihood???
+    if not loss_criterion:
+        # Loss calculation and backpropagation
+        loss = masked_cross_entropy(
+            all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
+            target_batches.transpose(0, 1).contiguous(), # -> batch x seq
+            target_lengths
+        )
+    else:
+        loss = loss_criterion(=all_decoder_outputs.transpose(0, 1).contiguous(), 
+            target_batches.transpose(0, 1).contiguous())
 
-    # Loss calculation and backpropagation
-    loss = masked_cross_entropy(
-        all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
-        target_batches.transpose(0, 1).contiguous(), # -> batch x seq
-        target_lengths
-    )
     loss.backward()
     
     # Clip gradient norms

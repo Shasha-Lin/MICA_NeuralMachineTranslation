@@ -1,13 +1,15 @@
+# File used to train a model over multiple epochs
 # Code source : https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation-batched.ipynb
-
-from evaluation import *
-
+# no file named evaluation
+from evaluation_and_attention_visualization.py import *
+# adding this import for clarity 
+from training import *
 import io
 import torchvision
 from PIL import Image
 import visdom
 vis = visdom.Visdom()
-
+import torch.nn as nn
 %matplotlib inline
 
 # If GPU being used, set TRUE else FALSE:
@@ -93,7 +95,7 @@ def main():
     # Initialize optimizers and criterion
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.NLLLoss()
 
     # Move models to GPU
     if USE_CUDA:
@@ -142,7 +144,9 @@ def main():
         loss, ec, dc = train(
             input_batches, input_lengths, target_batches, target_lengths,
             encoder, decoder,
-            encoder_optimizer, decoder_optimizer)
+            encoder_optimizer, decoder_optimizer,
+            criterion
+        )
 
         # Keep track of loss
         print_loss_total += loss

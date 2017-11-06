@@ -33,7 +33,7 @@ class BahdanauAttnDecoderRNN(nn.Module):
         
         # Get the embedding of the current input word (last output word)
         word_embedded = self.embedding(word_input).view(1, 1, -1) # S=1 x B x N
-        word_embedded = self.dropout(word_embedded)
+        word_embedded = self.dropout(word_embedded) # removing dropout in this case
         
         # Calculate attention weights and apply to encoder outputs
         attn_weights = self.attn(last_hidden[-1], encoder_outputs)
