@@ -90,6 +90,21 @@ class Lang:
         for word in keep_words:
             self.index_word(word)
 
+            
+# adding section for character encoding on non-bpe base files
+# Source: https://github.com/eladhoffer/seq2seq.pytorch/blob/master/seq2seq/tools/tokenizer.py
+class CharTokenizer(Tokenizer):
+
+    def segment(self, line):
+        return list(line.strip())
+
+    def detokenize(self, inputs, delimiter=u''):
+        return super(CharTokenizer, self).detokenize(inputs, delimiter)
+
+            
+            
+            
+            
 def normalize_string(s):
     s = re.sub(r"([,.!?])", r" \1 ", s)
     s = re.sub(r"[^a-zA-Z,.!?]+", r" ", s)
