@@ -7,7 +7,7 @@ from Encoder_Decoder import *
 # The Attention based decoder is also structured based on this paaper: https://arxiv.org/pdf/1409.0473.pdf
 
 # If GPU being used, set TRUE else FALSE:
-USE_CUDA = True
+USE_CUDA = torch.cuda.is_available()
 
 class BahdanauAttnDecoderRNN(nn.Module):
     def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):

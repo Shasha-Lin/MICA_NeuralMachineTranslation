@@ -31,7 +31,7 @@ import numpy as np
 %matplotlib inline
 
 # If GPU being used, set TRUE else FALSE:
-USE_CUDA = True
+USE_CUDA = torch.cuda.is_available()
 
 
 # INDEXING WORDS

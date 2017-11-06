@@ -11,10 +11,7 @@ vis = visdom.Visdom()
 %matplotlib inline
 
 # If GPU being used, set TRUE else FALSE:
-if torch.cuda.is_available():
-    USE_CUDA = True
-else:
-    USE_CUDA = False
+USE_CUDA = torch.cuda.is_available()
 
 
 
@@ -70,16 +67,17 @@ def main():
 
     # Configure models
     # attn_model = 'dot'
-    hidden_size = 1024
+    hidden_size_enc = 512
+    hidden_size_dec = 1024
     n_layers = 2
     dropout = 0.1
-    batch_size = 80
+    batch_size = 128
     # batch_size = 50
 
     # Configure training/optimization
     # clip = 50.0
     clip = 1.0 # Based on our paper, clipping gradient norm is 1
-    teacher_forcing_ratio = 0.5
+    teacher_forcing_ratio = 0 #0.5
     learning_rate = 0.0001
     decoder_learning_ratio = 5.0
     n_epochs = 50000
@@ -89,8 +87,8 @@ def main():
     evaluate_every = 10000 # We check the validation in every 10,000 minibatches
 
     # Initialize models
-    encoder = EncoderRNN(input_lang.n_words, hidden_size, n_layers, dropout=dropout)
-    decoder = BahdanauAttnDecoderRNN( hidden_size, output_lang.n_words, n_layers, dropout_p=dropout)
+    encoder = EncoderRNN(input_lang.n_words, hidden_size_enc, n_layers, dropout=dropout)
+    decoder = BahdanauAttnDecoderRNN(hidden_size_dec, output_lang.n_words, n_layers, dropout_p=dropout)
 
     # Initialize optimizers and criterion
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
@@ -107,7 +105,8 @@ def main():
         'attn_model': attn_model,
         'n_layers': n_layers,
         'dropout': dropout,
-        'hidden_size': hidden_size,
+        'hidden_size_enc': hidden_size_enc,
+        'hidden_size_dec': hidden_size_dec,
         'learning_rate': learning_rate,
         'clip': clip,
         'teacher_forcing_ratio': teacher_forcing_ratio,

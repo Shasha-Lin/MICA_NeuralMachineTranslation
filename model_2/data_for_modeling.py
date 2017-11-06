@@ -5,10 +5,8 @@ from data_loading import *
 %matplotlib inline
 
 # If GPU being used, set TRUE else FALSE:
-if torch.cuda.is_available():
-    USE_CUDA = True
-else:
-    USE_CUDA = False
+USE_CUDA = torch.cuda.is_available()
+
 
 # Necessary peprocessing of data for modeling (details included in the Readme file)
 

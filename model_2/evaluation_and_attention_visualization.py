@@ -5,7 +5,7 @@ from training import *
 %matplotlib inline
 
 # If GPU being used, set TRUE else FALSE:
-USE_CUDA = True
+USE_CUDA = torch.cuda.is_available()
 
 def as_minutes(s):
     m = math.floor(s / 60)
