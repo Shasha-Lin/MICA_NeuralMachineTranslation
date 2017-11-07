@@ -2,7 +2,6 @@
 
 from Encoder_Decoder import *
 
-%matplotlib inline
 
 # The Attention based decoder is also structured based on this paaper: https://arxiv.org/pdf/1409.0473.pdf
 
@@ -10,7 +9,7 @@ from Encoder_Decoder import *
 USE_CUDA = torch.cuda.is_available()
 
 class BahdanauAttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):
+    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1, max_length=None):
         super(BahdanauAttnDecoderRNN, self).__init__()
         
         # Define parameters

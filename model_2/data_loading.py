@@ -103,7 +103,7 @@ def normalize_string(s):
 
 
 
-def read_langs(lang1, lang2, term="txt", reverse=False, normalize=False, path="."):
+def read_langs(lang1, lang2, term="txt", reverse=False, normalize=False, path=".", char_output=False):
     print("Reading lines...")
 
     # Read the file and split into lines
@@ -124,10 +124,11 @@ def read_langs(lang1, lang2, term="txt", reverse=False, normalize=False, path=".
     # Reverse pairs, make Lang instances
     if reverse:
         pairs = [list(reversed(p)) for p in pairs]
-        input_lang = Lang(lang2)
-        output_lang = Lang(lang1)
+    input_lang = Lang(lang1)
+    if char_output:
+        output_lang = CharTokenizer(vocab_file='')
+        
     else:
-        input_lang = Lang(lang1)
         output_lang = Lang(lang2)
 
     return input_lang, output_lang, pairs

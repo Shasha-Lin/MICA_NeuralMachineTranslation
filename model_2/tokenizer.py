@@ -19,7 +19,54 @@ SOS_TOKEN = BOS_TOKEN = 1
 EOS_TOKEN = 2
 UNK_TOKEN = 3
 
-class Tokenizer(object):
+class Lang(object):
+    def __init__(self, name):
+        self.name = name
+        self.trimmed = False
+        self.word2index = {}
+        self.word2count = {}
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
+        self.n_words = 3 # Count default tokens
+
+    def index_words(self, sentence):
+        for word in sentence.split(' '):
+            self.index_word(word)
+
+    def index_word(self, word):
+        if word not in self.word2index:
+            self.word2index[word] = self.n_words
+            self.word2count[word] = 1
+            self.index2word[self.n_words] = word
+            self.n_words += 1
+        else:
+            self.word2count[word] += 1
+
+    # Remove words below a certain count threshold
+    def trim(self, min_count):
+        if self.trimmed: return
+        self.trimmed = True
+        
+        keep_words = []
+        
+        for k, v in self.word2count.items():
+            if v >= min_count:
+                keep_words.append(k)
+
+        print('keep_words %s / %s = %.4f' % (
+            len(keep_words), len(self.word2index), len(keep_words) / len(self.word2index)
+        ))
+
+        # Reinitialize dictionaries
+        self.word2index = {}
+        self.word2count = {}
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
+        self.n_words = 3 # Count default tokens
+
+        for word in keep_words:
+            self.index_word(word)
+
+
+class Tokenizer(Lang):
 
     def __init__(self, max_length=500, vocab_file=None,
                  additional_tokens=None,
@@ -32,6 +79,8 @@ class Tokenizer(object):
         self.__word2idx = {}
         if os.path.isfile(vocab_file):
             self.load_vocab(vocab_file)
+        self.n_words = 3
+        self.trimmed = False
 
     @property
     def vocab_size(self):
@@ -48,10 +97,14 @@ class Tokenizer(object):
             word[0]: idx + len(self.special_tokens) for idx, word in enumerate(self.vocab)}
         for i, tok in enumerate(self.special_tokens):
             self.__word2idx[tok] = i
+        self.n_words=self.vocab_size
 
     def word2idx(self, word):
         return self.__word2idx.get(word, UNK_TOKEN)
-
+    
+    def word2index(self, word): 
+        return self.__word2idx.get(word, UNK_TOKEN)
+    
     def segment(self, line):
         """segments a line to tokenizable items"""
         return str(line).lower().translate(string.punctuation).strip().split()
@@ -102,6 +155,30 @@ class Tokenizer(object):
 
     def detokenize(self, inputs, delimiter=u' '):
         return delimiter.join([self.idx2word(idx) for idx in inputs]).encode('utf-8')
+        # Remove words below a certain count threshold
+    
+    def trim(self, min_count):
+        if self.trimmed: return
+        self.trimmed = True
+
+        keep_words = []
+
+        no_words_kept = 0
+        for (k,v) in self.vocab:
+            if v >= min_count:
+                keep_words.append([k]*v)
+                no_words_kept += 1
+        keep_words = [item for sublist in keep_words for item in sublist]
+        print('keep_words %s / %s = %.4f' % (
+            no_words_kept, len(self.vocab), no_words_kept / len(self.vocab)
+        ))
+
+        # Reinitialize dictionaries
+        self.vocab = {}
+        self.__word2idx = {}
+        self.n_words = 3 # Count default tokens
+
+        self.get_vocab(keep_words, from_filenames=False)
 
     
     

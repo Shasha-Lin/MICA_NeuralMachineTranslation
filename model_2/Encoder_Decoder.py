@@ -2,8 +2,6 @@
 
 from data_for_modeling import *
 
-%matplotlib inline
-
 
 # Enocders and Attention module are coded as described in the paper : https://arxiv.org/pdf/1409.0473.pdf
 class EncoderRNN(nn.Module):

@@ -23,7 +23,13 @@ def main():
     ###### PART-I : Data Formation using scripts in data_for_modeling.py #####
     ##########################################################################
 
-    input_lang, output_lang, pairs = prepare_data('eng', 'fra', False)
+    input_lang, output_lang, pairs = prepare_data('en', 
+                                                  'fr', 
+                                                  False, 
+                                                  path="/Users/millie/Documents/NLP_fall_2017/project/Model2_ready/train",
+                                                  term='bpe2char',
+                                                  char_output=True
+                                                 )
 
     # TRIMMING DATA:
     # Trimming is optional but could be done to reduce the data size and make processing faster
@@ -39,17 +45,17 @@ def main():
 
     for pair in pairs:
         input_sentence = pair[0]
-        output_sentence = pair[1]
+        output_sentence = pair[1].lower()
         keep_input = True
         keep_output = True
-        
+
         for word in input_sentence.split(' '):
             if word not in input_lang.word2index:
                 keep_input = False
                 break
 
-        for word in output_sentence.split(' '):
-            if word not in output_lang.word2index:
+        for word in list(output_sentence):
+            if word not in dict(output_lang.vocab) and word != " ":
                 keep_output = False
                 break
 
@@ -59,12 +65,6 @@ def main():
 
     print("Trimmed from %d pairs to %d, %.4f of total" % (len(pairs), len(keep_pairs), len(keep_pairs) / len(pairs)))
     pairs = keep_pairs
-
-    
-    
-    # character level embedding
-    ct = CharTokenizer(vocab_file="")
-    ct.get_vocab(list(np.array(pairs)[:, 1]), from_filenames=False)
 
 
 
@@ -143,9 +143,14 @@ def main():
 
     while epoch < n_epochs:
         epoch += 1
-        
+
         # Get training data for this cycle
-        input_batches, input_lengths, target_batches, target_lengths = random_batch(batch_size)
+        input_batches, input_lengths, target_batches, target_lengths = random_batch(batch_size, 
+                                                                                    pairs,
+                                                                                    input_lang,
+                                                                                    output_lang,
+                                                                                    char_output=True
+                                                                                   )
 
         # Run the train function
         loss, ec, dc = train(

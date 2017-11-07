@@ -10,35 +10,49 @@ USE_CUDA = torch.cuda.is_available()
 
 # Necessary peprocessing of data for modeling (details included in the Readme file)
 
-def prepare_data(lang1_name, lang2_name, reverse=False):
+def prepare_data(lang1_name, lang2_name, reverse=False, path='.', term='txt', char_output=False):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
-    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, reverse=reverse, path="/Users/millie/Documents/NLP_fall_2017/data")
+    input_lang, output_lang, pairs = read_langs(lang1_name, 
+                                                lang2_name, 
+                                                reverse=reverse, 
+                                                path=path, 
+                                                term=term,
+                                                char_output=char_output
+                                               )
     print("Read %d sentence pairs" % len(pairs))
     
     pairs = filter_pairs(pairs)
     print("Filtered to %d pairs" % len(pairs))
     
     print("Indexing words...")
-    for pair in pairs:
-        input_lang.index_words(pair[0])
-        output_lang.index_words(pair[1])
+    if not char_output:
+        for pair in pairs:
+            input_lang.index_words(pair[0])
+            output_lang.index_words(pair[1])
+    else:
+        for pair in pairs:
+            input_lang.index_words(pair[0])
+        output_lang.get_vocab(list(np.array(pairs)[:, 1]), from_filenames=False)
     
     print('Indexed %d words in input language, %d words in output' % (input_lang.n_words, output_lang.n_words))
     return input_lang, output_lang, pairs
 
 
 # Return a list of indexes, one for each word in the sentence, plus EOS
-def indexes_from_sentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence.split(' ')] + [EOS_token]
-
+def indexes_from_sentence(lang, sentence, char_output=False):
+    if not char_output:
+        return [lang.word2index[word] for word in sentence.split(' ')] + [EOS_token]
+    else:
+        return [lang.word2index(word) for word in sentence.split(' ')] + [EOS_token]
+        
 # Pad a with the PAD symbol
 def pad_seq(seq, max_length):
     seq += [PAD_token for i in range(max_length - len(seq))]
     return seq
 
 
-def random_batch(batch_size):
+def random_batch(batch_size, pairs, input_lang, output_lang, char_output=False):
     input_seqs = []
     target_seqs = []
 
@@ -46,7 +60,7 @@ def random_batch(batch_size):
     for i in range(batch_size):
         pair = random.choice(pairs)
         input_seqs.append(indexes_from_sentence(input_lang, pair[0]))
-        target_seqs.append(indexes_from_sentence(output_lang, pair[1]))
+        target_seqs.append(indexes_from_sentence(output_lang, pair[1], char_output=char_output))
 
     # Zip into pairs, sort by length (descending), unzip
     seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
