@@ -1,20 +1,20 @@
 # File used to train a model over multiple epochs
 # Code source : https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation-batched.ipynb
 # no file named evaluation
-from evaluation_and_attention_visualization.py import *
+import torch
+# from evaluation_and_attention_visualization import *
 # adding this import for clarity 
-from training import *
 import io
 import torchvision
 from PIL import Image
 import visdom
 vis = visdom.Visdom()
 import torch.nn as nn
-%matplotlib inline
-
+from tokenizer import CharTokenizer
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
 
+from data_for_modeling import *
 
 
 def main():
@@ -59,6 +59,13 @@ def main():
 
     print("Trimmed from %d pairs to %d, %.4f of total" % (len(pairs), len(keep_pairs), len(keep_pairs) / len(pairs)))
     pairs = keep_pairs
+
+    
+    
+    # character level embedding
+    ct = CharTokenizer(vocab_file="")
+    ct.get_vocab(list(np.array(pairs)[:, 1]), from_filenames=False)
+
 
 
     ##########################################################################

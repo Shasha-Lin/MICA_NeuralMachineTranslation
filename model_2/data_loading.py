@@ -28,7 +28,6 @@ from masked_cross_entropy import *
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
-%matplotlib inline
 from tokenizer import CharTokenizer
 
 # If GPU being used, set TRUE else FALSE:
@@ -44,6 +43,7 @@ USE_CUDA = torch.cuda.is_available()
 PAD_token = 0
 SOS_token = 1
 EOS_token = 2
+
 
 class Lang:
     def __init__(self, name):
@@ -102,20 +102,24 @@ def normalize_string(s):
     return s
 
 
-def read_langs(lang1, lang2, reverse=False):
+
+def read_langs(lang1, lang2, term="txt", reverse=False, normalize=False, path="."):
     print("Reading lines...")
 
     # Read the file and split into lines
-	
-	# Attach the path here for the source and target language dataset
-    filename = '../%s-%s.txt' % (lang1, lang2)
+    print("update???")
+    # Attach the path here for the source and target language dataset
+    filename = '%s/%s-%s.%s' % (path, lang1, lang2, term)
     # This creats the file directory name whichis used below
 
     # lines contains the data in form of a list 
     lines = open(filename).read().strip().split('\n')
 
     # Split every line into pairs and normalize
-    pairs = [[normalize_string(s) for s in l.split('\t')] for l in lines]
+    if normalize == True:
+        pairs = [[normalize_string(s) for s in l.split('\t')] for l in lines]
+    else: 
+        pairs = [[s for s in l.split('\t')] for l in lines]
 
     # Reverse pairs, make Lang instances
     if reverse:
@@ -129,7 +133,8 @@ def read_langs(lang1, lang2, reverse=False):
     return input_lang, output_lang, pairs
 
 
-def filter_pairs(pairs, MIN_LENGTH, MAX_LENGTH):
+
+def filter_pairs(pairs, MIN_LENGTH=5, MAX_LENGTH=20):
     filtered_pairs = []
     for pair in pairs:
         if len(pair[0]) >= MIN_LENGTH and len(pair[0]) <= MAX_LENGTH \

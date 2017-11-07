@@ -4,8 +4,6 @@
 from Attn_Based_EN_DE import *
 import torch.nn as nn
 
-%matplotlib inline
-
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
 

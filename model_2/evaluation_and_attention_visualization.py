@@ -1,8 +1,8 @@
 # Code source : https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation-batched.ipynb
 
-from training import *
+# from training import *
+import torch
 
-%matplotlib inline
 
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()

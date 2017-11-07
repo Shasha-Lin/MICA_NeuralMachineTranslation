@@ -1,8 +1,8 @@
 # Code source : https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation-batched.ipynb
 
 from data_loading import *
+import torch
 
-%matplotlib inline
 
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
@@ -13,7 +13,7 @@ USE_CUDA = torch.cuda.is_available()
 def prepare_data(lang1_name, lang2_name, reverse=False):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
-    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, reverse)
+    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, reverse=reverse, path="/Users/millie/Documents/NLP_fall_2017/data")
     print("Read %d sentence pairs" % len(pairs))
     
     pairs = filter_pairs(pairs)

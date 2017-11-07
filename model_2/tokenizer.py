@@ -8,13 +8,16 @@ import logging
 import sys
 from collections import Counter
 import torch
-from .config import *
+#from .config import *
 
-sys.path.append(os.path.abspath(os.path.join(
-    os.path.dirname(__file__), './subword-nmt')))
-import learn_bpe
-import apply_bpe
-
+#sys.path.append(os.path.abspath(os.path.join(
+#    os.path.dirname(__file__), './subword-nmt')))
+#import learn_bpe
+#import apply_bpe
+PAD_TOKEN = 0
+SOS_TOKEN = BOS_TOKEN = 1
+EOS_TOKEN = 2
+UNK_TOKEN = 3
 
 class Tokenizer(object):
 
@@ -47,7 +50,7 @@ class Tokenizer(object):
             self.__word2idx[tok] = i
 
     def word2idx(self, word):
-        return self.__word2idx.get(word, UNK)
+        return self.__word2idx.get(word, UNK_TOKEN)
 
     def segment(self, line):
         """segments a line to tokenizable items"""
