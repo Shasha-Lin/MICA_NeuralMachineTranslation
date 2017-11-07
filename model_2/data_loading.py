@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 %matplotlib inline
+from tokenizer import CharTokenizer
 
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
@@ -90,18 +91,7 @@ class Lang:
         for word in keep_words:
             self.index_word(word)
 
-            
-# adding section for character encoding on non-bpe base files
-# Source: https://github.com/eladhoffer/seq2seq.pytorch/blob/master/seq2seq/tools/tokenizer.py
-class CharTokenizer(Tokenizer):
 
-    def segment(self, line):
-        return list(line.strip())
-
-    def detokenize(self, inputs, delimiter=u''):
-        return super(CharTokenizer, self).detokenize(inputs, delimiter)
-
-            
             
             
             
