@@ -24,7 +24,7 @@ parser.add_argument('--MIN_LENGTH', type=int, default=5, help='Min Length of seq
 parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence')
 parser.add_argument('--lang1', type=str, default="en", help='Input Language')
 parser.add_argument('--lang1', type=str, default="fr", help='Target Language')
-parser.add_argument('--use_cuda', action='store_true', help='IF USE CUDA')
+parser.add_argument('--use_cuda', action='store_false', help='IF USE CUDA')
 parser.add_argument('--teacher_forcing_ratio', type=int, default=0.5, help='Teacher forcing ratio for encoder')
 parser.add_argument('--hidden_size', type=int, default=256, help='Size of hidden layer')
 parser.add_argument('--n_iters', type=int, default=3000, help='Number of single iterations through the data')
