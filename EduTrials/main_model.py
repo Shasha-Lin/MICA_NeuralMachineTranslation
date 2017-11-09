@@ -133,7 +133,7 @@ def filterPairs(pairs):
     return [pair for pair in pairs if filterPair(pair)]
 
 
-def prepare_data(lang1_name, lang2_name, do_filter=False, MIN_LENGTH=opt.MIN_LENGTH, MAX_LENGTH=opt.MAX_LENGTH, reverse=False):
+def prepare_data(lang1_name, lang2_name, do_filter=True, MIN_LENGTH=opt.MIN_LENGTH, MAX_LENGTH=opt.MAX_LENGTH, reverse=False):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
     input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, term=opt.model_type, reverse=reverse)
