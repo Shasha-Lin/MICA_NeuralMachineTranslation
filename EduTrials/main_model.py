@@ -127,8 +127,8 @@ def read_langs(lang1, lang2, term="txt", reverse=False):
 def filter_pairs(pairs, MIN_LENGTH=5, MAX_LENGTH=200):
     filtered_pairs = []
     for pair in pairs:
-        if len(pair[0]) >= MIN_LENGTH and len(pair[0]) <= MAX_LENGTH \
-            and len(pair[1]) >= MIN_LENGTH and len(pair[1]) <= MAX_LENGTH:
+        if len(pair[0]) >= MIN_LENGTH and len(pair[0]) <= MAX_LENGTH+1 \
+            and len(pair[1]) >= MIN_LENGTH and len(pair[1]) <= MAX_LENGTH+1:
                 filtered_pairs.append(pair)
     return filtered_pairs
 
