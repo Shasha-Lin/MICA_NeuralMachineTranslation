@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--MIN_LENGTH', type=int, default=5, help='Min Length of sequence')
 parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence')
 parser.add_argument('--lang1', type=str, default="en", help='Input Language')
-parser.add_argument('--lang1', type=str, default="fr", help='Target Language')
+parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
 parser.add_argument('--use_cuda', action='store_false', help='IF USE CUDA')
 parser.add_argument('--teacher_forcing_ratio', type=int, default=0.5, help='Teacher forcing ratio for encoder')
 parser.add_argument('--hidden_size', type=int, default=256, help='Size of hidden layer')
@@ -132,10 +132,10 @@ def filter_pairs(pairs, MIN_LENGTH=5, MAX_LENGTH=200):
                 filtered_pairs.append(pair)
     return filtered_pairs
 
-def prepare_data(lang1_name, lang2_name, do_filter=False, MIN_LENGTH=opt.MIN_LENGTH, MAX_LENGTH=opt.MAX_LENGTH, reverse=False, normalize=False):
+def prepare_data(lang1_name, lang2_name, do_filter=False, MIN_LENGTH=opt.MIN_LENGTH, MAX_LENGTH=opt.MAX_LENGTH, reverse=False):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
-    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, term=opt.model_type, reverse=reverse, normalize=normalize)
+    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, term=opt.model_type, reverse=reverse)
     print("Read %d sentence pairs" % len(pairs))
  
     if do_filter==True:
