@@ -124,13 +124,14 @@ def read_langs(lang1, lang2, term="txt", reverse=False):
 
     return input_lang, output_lang, pairs
 
-def filter_pairs(pairs, MIN_LENGTH=5, MAX_LENGTH=200):
-    filtered_pairs = []
-    for pair in pairs:
-        if len(pair[0]) >= MIN_LENGTH and len(pair[0]) <= MAX_LENGTH+1 \
-            and len(pair[1]) >= MIN_LENGTH and len(pair[1]) <= MAX_LENGTH+1:
-                filtered_pairs.append(pair)
-    return filtered_pairs
+
+def filterPair(p):
+    return len(p[0].split(' ')) < MAX_LENGTH and \
+        len(p[1].split(' ')) < MAX_LENGTH
+
+def filterPairs(pairs):
+    return [pair for pair in pairs if filterPair(pair)]
+
 
 def prepare_data(lang1_name, lang2_name, do_filter=False, MIN_LENGTH=opt.MIN_LENGTH, MAX_LENGTH=opt.MAX_LENGTH, reverse=False):
 
@@ -358,7 +359,7 @@ if opt.use_cuda:
     encoder1 = encoder1.cuda()
     attn_decoder1 = attn_decoder1.cuda()
 
-trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, learning_rate=opt.learning_rate, print_every=5000)
+trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, learning_rate=opt.learning_rate, print_every=100)
 
 torch.save(encoder1.state_dict(), "saved_encoder.pth")
 torch.save(attn_decoder1.state_dict(), "saved_decoder.pth")   
