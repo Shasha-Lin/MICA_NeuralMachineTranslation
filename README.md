@@ -26,7 +26,7 @@ Dataset: English to French: https://wit3.fbk.eu/mt.php?release=2016-01
 
 ---
 ## Comet ML (account for everyone): 
-email: eff254@nyu.edu
-user: edufierro
-password: wearemica
-API Key: 00Z9vIf4wOLZ0yrqzdwHqttv4
+- email: eff254@nyu.edu 
+- user: edufierro
+- password: wearemica
+- API Key: 00Z9vIf4wOLZ0yrqzdwHqttv4
