@@ -2,6 +2,8 @@
 
 code_dir="/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/MICA_NeuralMachineTranslation/Preprocess/"
 
+#### bpe2bpe ####
+
 python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/train.en.tok.bpe" \
                                   --file2 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/train.fr.tok.bpe" \
                                   --outdir "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model1_ready/train/" \
@@ -57,4 +59,61 @@ python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/Ter
                                   --lang1 "en" \
                                   --lang2 "fr" \
                                   --term ".tst2014-bpe2bpe"
+
+#### seq2seq ####
+
+python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/train.en.tok" \
+                                  --file2 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/train.fr.tok" \
+                                  --outdir "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model1_ready/train/" \
+                                  --lang1 "en" \
+                                  --lang2 "fr" \
+                                  --term ".seq2seq"
                                   
+python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/dev.en.tok" \
+                                  --file2 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/dev.fr.tok" \
+                                  --outdir "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model1_ready/dev" \
+                                  --lang1 "en" \
+                                  --lang2 "fr" \
+                                  --term ".seq2seq"
+                                  
+python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/valid.en.tok" \
+                                  --file2 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/valid.fr.tok" \
+                                  --outdir "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model1_ready/valid" \
+                                  --lang1 "en" \
+                                  --lang2 "fr" \
+                                  --term ".seq2seq"
+                                  
+python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2010.en.tok" \
+                                  --file2 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2010.fr.tok" \
+                                  --outdir "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model1_ready/test" \
+                                  --lang1 "en" \
+                                  --lang2 "fr" \
+                                  --term ".tst2010-seq2seq"
+                                  
+python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2011.en.tok" \
+                                  --file2 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2011.fr.tok" \
+                                  --outdir "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model1_ready/test" \
+                                  --lang1 "en" \
+                                  --lang2 "fr" \
+                                  --term ".tst2011-seq2seq"
+                                  
+python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2012.en.tok" \
+                                  --file2 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2012.fr.tok" \
+                                  --outdir "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model1_ready/test" \
+                                  --lang1 "en" \
+                                  --lang2 "fr" \
+                                  --term ".tst2012-seq2seq"
+                                  
+python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2013.en.tok" \
+                                  --file2 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2013.fr.tok" \
+                                  --outdir "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model1_ready/test" \
+                                  --lang1 "en" \
+                                  --lang2 "fr" \
+                                  --term ".tst2013-seq2seq"
+                                  
+python "$code_dir"/file_merger.py --file1 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2014.en.tok" \
+                                  --file2 "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess/tst2014.fr.tok" \
+                                  --outdir "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model1_ready/test" \
+                                  --lang1 "en" \
+                                  --lang2 "fr" \
+                                  --term ".tst2014-seq2seq"                                
