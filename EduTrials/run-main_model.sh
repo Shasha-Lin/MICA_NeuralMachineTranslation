@@ -3,7 +3,7 @@
 #SBATCH --job-name=mica_edu2
 #SBATCH --gres=gpu:1
 #SBATCH --time=40:00:00
-#SBATCH --mem=10GB
+#SBATCH --mem=40GB
 #SBATCH --output=outputs/%A.out
 #SBATCH --error=outputs/%A.err
 

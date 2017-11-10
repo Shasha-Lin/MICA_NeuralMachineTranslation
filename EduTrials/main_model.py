@@ -160,8 +160,8 @@ def variable_from_sentence(lang, sentence):
     indexes = indexes_from_sentence(lang, sentence)
     indexes.append(EOS_token)
     var = Variable(torch.LongTensor(indexes).view(-1, 1))
-#     print('var =', var)
-    if opt.use_cuda: var = var.cuda()
+    if opt.use_cuda: 
+        var = var.cuda()
     return var
 
 def variables_from_pair(pair):
@@ -313,7 +313,7 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
     return loss.data[0] / target_length
     
 def trainIters(encoder, decoder, n_iters, pairs, learning_rate=0.01, 
-               print_every=1000, save_every=1000):
+               print_every=5000, save_every=5000):
     
     start = time.time()
     print_loss_total = 0  # Reset every print_every
@@ -360,9 +360,6 @@ if opt.use_cuda:
     attn_decoder1 = attn_decoder1.cuda()
 
 trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, learning_rate=opt.learning_rate, print_every=100)
-
-torch.save(encoder1.state_dict(), "saved_encoder.pth")
-torch.save(attn_decoder1.state_dict(), "saved_decoder.pth")   
 
 torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
 torch.save(attn_decoder1.state_dict(), "{}/saved_decoder_final.pth".format(opt.out_dir))         
