@@ -125,12 +125,12 @@ def read_langs(lang1, lang2, term="txt", reverse=False):
     return input_lang, output_lang, pairs
 
 
-def filterPair(p):
-    return len(p[0].split(' ')) < MAX_LENGTH and \
-        len(p[1].split(' ')) < MAX_LENGTH
+def filterPair(p, max_length):
+    return len(p[0].split(' ')) < max_length and \
+        len(p[1].split(' ')) < max_length
 
-def filterPairs(pairs):
-    return [pair for pair in pairs if filterPair(pair)]
+def filterPairs(pairs, max_length):
+    return [pair for pair in pairs if filterPair(pair, max_length)]
 
 
 def prepare_data(lang1_name, lang2_name, do_filter=True, MIN_LENGTH=opt.MIN_LENGTH, MAX_LENGTH=opt.MAX_LENGTH, reverse=False):
@@ -140,7 +140,7 @@ def prepare_data(lang1_name, lang2_name, do_filter=True, MIN_LENGTH=opt.MIN_LENG
     print("Read %d sentence pairs" % len(pairs))
  
     if do_filter==True:
-        pairs = filter_pairs(pairs, MIN_LENGTH, MAX_LENGTH)
+        pairs = filterPairs(pairs, MAX_LENGTH)
         print("Filtered to %d pairs" % len(pairs))
     else: 
         print("Pairs not filtered...")
