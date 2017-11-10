@@ -12,4 +12,4 @@ module load python3/intel/3.5.3
 
 python3 -m pip install comet_ml --user
 
-python3 -u main_model.py  --n_iters 200000  --main_data_dir "/scratch/eff254/NLP/Data/Model_ready/" --out_dir "/scratch/eff254/NLP/ModelOutputs/"
+python3 -u main_model.py  --n_iters 200000 --learning_rate 0.001  --main_data_dir "/scratch/eff254/NLP/Data/Model_ready/" --out_dir "/scratch/eff254/NLP/ModelOutputs/"
