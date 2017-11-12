@@ -24,7 +24,7 @@ parser.add_argument('--MIN_LENGTH', type=int, default=5, help='Min Length of seq
 parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence')
 parser.add_argument('--lang1', type=str, default="en", help='Input Language')
 parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
-parser.add_argument('--use_cuda', action='store_false', help='IF USE CUDA')
+parser.add_argument('--use_cuda', action='store_false', help='IF USE CUDA (Default == True)')
 parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='Teacher forcing ratio for encoder')
 parser.add_argument('--hidden_size', type=int, default=256, help='Size of hidden layer')
 parser.add_argument('--n_iters', type=int, default=3000, help='Number of single iterations through the data')
@@ -33,7 +33,8 @@ parser.add_argument('--n_layers', type=int, default=1, help='Number of layers (f
 parser.add_argument('--dropout_dec_p', type=float, default=0.1, help='Dropout (%) in the decoder')
 parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
 parser.add_argument('--main_data_dir', type=str, default= "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model_ready/", help='Directory where data is saved (in folders tain/dev/test)')
-parser.add_argument('--out_dir', type=str, default="", help="Directory to save the models state dict")
+parser.add_argument('--out_dir', type=str, default="", help="Directory to save the models state dict (No default)")
+parser.add_argument('--optimizer', type=str, default="", help="Optimizer (Adam vs SGD). Default: Adam")
 opt = parser.parse_args()
 print(opt)
 
@@ -319,8 +320,15 @@ def trainIters(encoder, decoder, n_iters, pairs, learning_rate=0.01,
     print_loss_total = 0  # Reset every print_every
     
     # Optimizers = ADAM in Chung, Cho and Bengio 2016
-    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+    if opt.optimizer == "Adam":
+        encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+        decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+    elif opt.optimizer == "SGD":
+        encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
+        decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)  
+    else: 
+        raise ValueError('Optimizer options not found: Select SGD or Adam') 
+    
     training_pairs = [variables_from_pair(random.choice(pairs))
                       for i in range(n_iters)]
     criterion = nn.NLLLoss()
