@@ -14,8 +14,10 @@ from tokenizer import CharTokenizer
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
 
+MAX_LENGTH = 100
+from training import *
 from data_for_modeling import *
-
+from Attn_Based_EN_DE import *
 
 def main():
 
@@ -160,7 +162,8 @@ def main():
             input_batches, input_lengths, target_batches, target_lengths,
             encoder, decoder,
             encoder_optimizer, decoder_optimizer,
-            criterion
+            criterion,
+            batch_size=batch_size
         )
 
         # Keep track of loss

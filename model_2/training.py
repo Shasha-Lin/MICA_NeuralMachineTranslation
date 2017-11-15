@@ -7,7 +7,7 @@ import torch.nn as nn
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
 
-def train(input_batches, input_lengths, target_batches, target_lengths, encoder, decoder, encoder_optimizer, decoder_optimizer,loss_criterion=None, max_length=MAX_LENGTH):
+def train(input_batches, input_lengths, target_batches, target_lengths, encoder, decoder, encoder_optimizer, decoder_optimizer,loss_criterion=None, max_length=MAX_LENGTH, batch_size=32):
     
     # Zero gradients of both optimizers
     encoder_optimizer.zero_grad()
