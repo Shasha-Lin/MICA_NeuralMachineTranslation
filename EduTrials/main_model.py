@@ -20,8 +20,10 @@ Created on Wed Nov  8 22:31:02 2017
 ######## File params ########
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--MIN_LENGTH', type=int, default=5, help='Min Length of sequence')
-parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence')
+parser.add_argument('--MIN_LENGTH_INPUT', type=int, default=5, help='Min Length of sequence (Input side)')
+parser.add_argument('--MAX_LENGTH_INPUT', type=int, default=200, help='Max Length of sequence (Input side)')
+parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=5, help='Min Length of sequence (Output side)')
+parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=200, help='Max Length of sequence (Output side)')
 parser.add_argument('--lang1', type=str, default="en", help='Input Language')
 parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
 parser.add_argument('--use_cuda', action='store_false', help='IF USE CUDA (Default == True)')
@@ -99,15 +101,30 @@ class Lang:
         for word in keep_words:
             self.index_word(word)
 
-def read_langs(lang1, lang2, term="txt", reverse=False):
+def read_langs(lang1, lang2, set_type="train", term="txt", reverse=False):
     print("Reading lines...")
 
     # Read the file and split into lines
-
-    # Attach the path here for the source and target language dataset
-    filename = '%s/train/%s-%s.%s' % (opt.main_data_dir, lang1, lang2, term)
-    # This creats the file directory name whichis used below
-
+    if set_type == "train":
+        filename = '%s/train/%s-%s.%s' % (opt.main_data_dir, lang1, lang2, term)
+    elif set_type == "dev":
+        filename = '%s/dev/%s-%s.%s' % (opt.main_data_dir, lang1, lang2, term)
+    elif set_type == "valid":
+        filename = '%s/dev/%s-%s.%s' % (opt.main_data_dir, lang1, lang2, term)
+    elif set_type == "tst2010":
+        filename = '%s/test/%s-%s.tst2010-%s' % (opt.main_data_dir, lang1, lang2, term)
+    elif set_type == "tst2011":
+        filename = '%s/test/%s-%s.tst2011-%s' % (opt.main_data_dir, lang1, lang2, term)
+    elif set_type == "tst2012":
+        filename = '%s/test/%s-%s.tst2012-%s' % (opt.main_data_dir, lang1, lang2, term)
+    elif set_type == "tst2013":
+        filename = '%s/test/%s-%s.tst2013-%s' % (opt.main_data_dir, lang1, lang2, term)
+    elif set_type == "tst2014":
+        filename = '%s/test/%s-%s.tst2014-%s' % (opt.main_data_dir, lang1, lang2, term)  
+    else:
+        raise ValueError("set_type not found. Check data folder options")
+        
+        
     # lines contains the data in form of a list 
     lines = open(filename).read().strip().split('\n')
 
@@ -126,26 +143,25 @@ def read_langs(lang1, lang2, term="txt", reverse=False):
     return input_lang, output_lang, pairs
 
 
-def filterPair(p, max_length):
-    return len(p[0].split(' ')) < max_length and \
+def filterPair(p, min_length_input, min_length_target, max_length_input, max_length_target):
+    return len(p[0].split(' ')) > min_length_input and \
+        len(p[1].split(' ')) > min_length_target and \
+        len(p[0].split(' ')) < max_length and \
         len(p[1].split(' ')) < max_length
 
 def filterPairs(pairs, max_length):
     return [pair for pair in pairs if filterPair(pair, max_length)]
 
 
-def prepare_data(lang1_name, lang2_name, do_filter=True, MIN_LENGTH=opt.MIN_LENGTH, MAX_LENGTH=opt.MAX_LENGTH, reverse=False):
+def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
     input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, term=opt.model_type, reverse=reverse)
     print("Read %d sentence pairs" % len(pairs))
  
-    if do_filter==True:
-        pairs = filterPairs(pairs, MAX_LENGTH)
-        print("Filtered to %d pairs" % len(pairs))
-    else: 
-        print("Pairs not filtered...")
-    
+    pairs = filterPairs(pairs, opt.MIN_LENGTH_INPUT, opt.MIN_LENGTH_TARGET, opt.MAX_LENGTH_INPUT, opt.MAX_LENGTH_TARGET)
+    print("Filtered to %d pairs" % len(pairs))
+
     print("Indexing words...")
     for pair in pairs:
         input_lang.index_words(pair[0])
@@ -199,7 +215,7 @@ class EncoderRNN(nn.Module):
             return result
         
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1, max_length=opt.MAX_LENGTH):
+    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1, max_length=opt.MAX_LENGTH_TARGET):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -256,7 +272,7 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
     
-def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=opt.MAX_LENGTH):
+def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=opt.MAX_LENGTH_TARGET):
     
     encoder_hidden = encoder.initHidden()
 
@@ -357,7 +373,7 @@ def trainIters(encoder, decoder, n_iters, pairs, learning_rate=0.01,
 # Train #
 #########
 
-input_lang, output_lang, pairs = prepare_data(opt.lang1, opt.lang2)
+input_lang, output_lang, pairs = prepare_data(opt.lang1, opt.lang2, set_type="train")
 
 encoder1 = EncoderRNN(input_lang.n_words, opt.hidden_size)
 attn_decoder1 = AttnDecoderRNN(opt.hidden_size, output_lang.n_words,
@@ -367,7 +383,7 @@ if opt.use_cuda:
     encoder1 = encoder1.cuda()
     attn_decoder1 = attn_decoder1.cuda()
 
-trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, learning_rate=opt.learning_rate, print_every=100)
+trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, learning_rate=opt.learning_rate, print_every=1000)
 
 torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
 torch.save(attn_decoder1.state_dict(), "{}/saved_decoder_final.pth".format(opt.out_dir))         
