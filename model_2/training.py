@@ -17,9 +17,12 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
     # Run words through encoder
     encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths, None)
     
+    
     # Prepare input and output variables
     decoder_input = Variable(torch.LongTensor([SOS_token] * batch_size))
     decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
+#     print(last_context.size())
+    #last_context = last_context.transpose(0, 1) # 1 x B x N
 
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
@@ -28,6 +31,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
     if USE_CUDA:
         decoder_input = decoder_input.cuda()
         all_decoder_outputs = all_decoder_outputs.cuda()
+
 
     # Run through decoder one time step at a time
     for t in range(max_target_length):
@@ -48,7 +52,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
             target_lengths
         )
     else:
-        loss = loss_criterion(=all_decoder_outputs.transpose(0, 1).contiguous(), 
+        loss = loss_criterion(all_decoder_outputs.transpose(0, 1).contiguous(), 
             target_batches.transpose(0, 1).contiguous())
 
     loss.backward()
