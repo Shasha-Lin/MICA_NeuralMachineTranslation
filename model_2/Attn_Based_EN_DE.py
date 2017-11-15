@@ -1,51 +1,61 @@
 # Code source : https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation-batched.ipynb
 
 from Encoder_Decoder import *
-
+import torch
 
 # The Attention based decoder is also structured based on this paaper: https://arxiv.org/pdf/1409.0473.pdf
 
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
 
-class BahdanauAttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1, max_length=None):
-        super(BahdanauAttnDecoderRNN, self).__init__()
-        
-        # Define parameters
-        self.hidden_size = hidden_size
+class AttnDecoderRNN(nn.Module):
+    def __init__(self, hidden_size_enc, hidden_size_dec, output_size, n_layers=1, dropout_p=0.1, max_length=MAX_LENGTH):
+        super(AttnDecoderRNN, self).__init__()
+        self.hidden_size_enc = hidden_size_enc
+        self.hidden_size_dec = hidden_size_dec
         self.output_size = output_size
         self.n_layers = n_layers
         self.dropout_p = dropout_p
         self.max_length = max_length
-        
-        # Define layers
-        self.embedding = nn.Embedding(output_size, hidden_size)
-        self.dropout = nn.Dropout(dropout_p)
-        self.attn = Attn('concat', hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout_p)
-        self.out = nn.Linear(hidden_size, output_size)
-    
-    def forward(self, word_input, last_hidden, encoder_outputs):
-        # Note: we run this one step at a time
-        # TODO: FIX BATCHING
-        
-        # Get the embedding of the current input word (last output word)
-        word_embedded = self.embedding(word_input).view(1, 1, -1) # S=1 x B x N
-        word_embedded = self.dropout(word_embedded) # removing dropout in this case
-        
-        # Calculate attention weights and apply to encoder outputs
-        attn_weights = self.attn(last_hidden[-1], encoder_outputs)
-        context = attn_weights.bmm(encoder_outputs.transpose(0, 1)) # B x 1 x N
-        context = context.transpose(0, 1) # 1 x B x N
-        
-        # Combine embedded input word and attended context, run through RNN
-        rnn_input = torch.cat((word_embedded, context), 2)
-        output, hidden = self.gru(rnn_input, last_hidden)
-        
-        # Final output layer
-        output = output.squeeze(0) # B x N
-        output = F.log_softmax(self.out(torch.cat((output, context), 1)))
-        
-        # Return final output, hidden state, and attention weights (for visualization)
+
+        self.embedding = nn.Embedding(self.output_size, self.hidden_size_dec)
+        self.attn = nn.Linear(self.hidden_size_dec * 2, self.max_length)
+        self.attn_combine = nn.Linear(self.hidden_size_enc * 2, self.hidden_size_dec)
+        self.dropout = nn.Dropout(self.dropout_p)
+        self.gru = nn.GRU(self.hidden_size_dec, self.hidden_size_dec)
+        self.out = nn.Linear(self.hidden_size_dec, self.output_size)
+
+    def forward(self, input_data, hidden, encoder_outputs):
+        embedded = self.embedding(input_data).view(1, 1, -1)
+        embedded = self.dropout(embedded)
+        print("calc attn_weights")
+        print(embedded[0].size())
+        print(hidden[0].size())
+        print(torch.cat((embedded[0], 
+                                 hidden[0])).size())
+        print(self.attn())
+        attn_weights = F.softmax(
+            self.attn(torch.cat((embedded[0], 
+                                 hidden[0].view(1,-1,1)), 1)))
+        print("calc attn_applied")
+        print(attn_weights.unsqueeze(0).size())
+        print(encoder_outputs.unsqueeze(0).size())
+        attn_applied = torch.bmm(attn_weights.unsqueeze(0),
+                                 encoder_outputs.unsqueeze(0))
+
+        output = torch.cat((embedded[0], attn_applied[0]), 1)
+        output = self.attn_combine(output).unsqueeze(0)
+
+        for i in range(self.n_layers):
+            output = F.relu(output)
+            output, hidden = self.gru(output, hidden)
+
+        output = F.log_softmax(self.out(output[0]))
         return output, hidden, attn_weights
+
+    def initHidden(self):
+        result = Variable(torch.zeros(1, 1, self.hidden_size))
+        if use_cuda:
+            return result.cuda()
+        else:
+            return result

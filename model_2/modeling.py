@@ -14,8 +14,10 @@ from tokenizer import CharTokenizer
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
 
+MAX_LENGTH = 100
+from training import *
 from data_for_modeling import *
-
+from Attn_Based_EN_DE import *
 
 def main():
 
@@ -94,11 +96,14 @@ def main():
     plot_every = 20
     print_every = 100
     evaluate_every = 10000 # We check the validation in every 10,000 minibatches
-
-    # Initialize models
+        # Initialize models
     encoder = EncoderRNN(input_lang.n_words, hidden_size_enc, n_layers, dropout=dropout)
-    decoder = BahdanauAttnDecoderRNN(hidden_size_dec, output_lang.n_words, n_layers, dropout_p=dropout)
-
+    # decoder = BahdanauAttnDecoderRNN(hidden_size_dec, output_lang.n_words, n_layers, dropout_p=dropout)
+    decoder = AttnDecoderRNN( hidden_size_enc=hidden_size_enc,
+                             hidden_size_dec=hidden_size_dec, 
+                             output_size=output_lang.n_words, 
+                             n_layers=n_layers, 
+                             dropout_p=dropout)
     # Initialize optimizers and criterion
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
@@ -109,20 +114,20 @@ def main():
         encoder.cuda()
         decoder.cuda()
 
-    import sconce
-    job = sconce.Job('seq2seq-translate', {
-        'attn_model': attn_model,
-        'n_layers': n_layers,
-        'dropout': dropout,
-        'hidden_size_enc': hidden_size_enc,
-        'hidden_size_dec': hidden_size_dec,
-        'learning_rate': learning_rate,
-        'clip': clip,
-        'teacher_forcing_ratio': teacher_forcing_ratio,
-        'decoder_learning_ratio': decoder_learning_ratio,
-    })
-    job.plot_every = plot_every
-    job.log_every = print_every
+    # import sconce
+    # job = sconce.Job('seq2seq-translate', {
+    #     'attn_model': attn_model,
+    #     'n_layers': n_layers,
+    #     'dropout': dropout,
+    #     'hidden_size_enc': hidden_size_enc,
+    #     'hidden_size_dec': hidden_size_dec,
+    #     'learning_rate': learning_rate,
+    #     'clip': clip,
+    #     'teacher_forcing_ratio': teacher_forcing_ratio,
+    #     'decoder_learning_ratio': decoder_learning_ratio,
+    # })
+    # job.plot_every = plot_every
+    # job.log_every = print_every
 
     # Keep track of time elapsed and running averages
     start = time.time()
@@ -157,7 +162,8 @@ def main():
             input_batches, input_lengths, target_batches, target_lengths,
             encoder, decoder,
             encoder_optimizer, decoder_optimizer,
-            criterion
+            criterion,
+            batch_size=batch_size
         )
 
         # Keep track of loss
@@ -165,15 +171,15 @@ def main():
         plot_loss_total += loss
         eca += ec
         dca += dc
-        
-        job.record(epoch, loss)
+
+    #     job.record(epoch, loss)
 
         if epoch % print_every == 0:
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
             print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / n_epochs), epoch, epoch / n_epochs * 100, print_loss_avg)
             print(print_summary)
-            
+
         if epoch % evaluate_every == 0:
             evaluate_randomly()
 
@@ -181,7 +187,7 @@ def main():
             plot_loss_avg = plot_loss_total / plot_every
             plot_losses.append(plot_loss_avg)
             plot_loss_total = 0
-            
+
             # TODO: Running average helper
             ecs.append(eca / plot_every)
             dcs.append(dca / plot_every)
@@ -191,6 +197,51 @@ def main():
             vis.line(np.array(dcs), win=dcs_win, opts={'title': dcs_win})
             eca = 0
             dca = 0
+        # Initialize models
+        encoder = EncoderRNN(input_lang.n_words, hidden_size_enc, n_layers, dropout=dropout)
+        decoder = BahdanauAttnDecoderRNN(hidden_size_dec, output_lang.n_words, n_layers, dropout_p=dropout)
+
+        # Initialize optimizers and criterion
+        encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+        decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
+        criterion = nn.NLLLoss()
+
+        # Move models to GPU
+        if USE_CUDA:
+            encoder.cuda()
+            decoder.cuda()
+
+        import sconce
+        job = sconce.Job('seq2seq-translate', {
+            'attn_model': attn_model,
+            'n_layers': n_layers,
+            'dropout': dropout,
+            'hidden_size_enc': hidden_size_enc,
+            'hidden_size_dec': hidden_size_dec,
+            'learning_rate': learning_rate,
+            'clip': clip,
+            'teacher_forcing_ratio': teacher_forcing_ratio,
+            'decoder_learning_ratio': decoder_learning_ratio,
+        })
+        job.plot_every = plot_every
+        job.log_every = print_every
+
+        # Keep track of time elapsed and running averages
+        start = time.time()
+        plot_losses = []
+        print_loss_total = 0 # Reset every print_every
+        plot_loss_total = 0 # Reset every plot_every
+
+
+
+        ##########################################################################
+        ######                         PART-III : Modeling                   #####
+        ##########################################################################
+
+        ecs = []
+        dcs = []
+        eca = 0
+        dca = 0
 
 if __name__ == "__main__" :
     main()

@@ -1,7 +1,7 @@
 # Code source : https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation-batched.ipynb
 
 from data_for_modeling import *
-
+MAX_LENGTH=100
 
 # Enocders and Attention module are coded as described in the paper : https://arxiv.org/pdf/1409.0473.pdf
 class EncoderRNN(nn.Module):
