@@ -35,8 +35,15 @@ parser.add_argument('--n_layers', type=int, default=1, help='Number of layers (f
 parser.add_argument('--dropout_dec_p', type=float, default=0.1, help='Dropout (%) in the decoder')
 parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
 parser.add_argument('--main_data_dir', type=str, default= "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model_ready/", help='Directory where data is saved (in folders tain/dev/test)')
-parser.add_argument('--out_dir', type=str, default="", help="Directory to save the models state dict (No default)")
+parser.add_argument('--out_dir', type=str, default=".", help="Directory to save the models state dict (No default)")
 parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
+parser.add_argument('--save_every', type=int, default=5000, help='Checkpoint model after number of iters')
+parser.add_argument('--print_every', type=int, default=5000, help='Print training loss after number of iters')
+# translation params
+parser.add_argument('--enc_checkpoint', type=str, default=".", help="checkpoint to load encoder from (Default: None)")
+parser.add_argument('--dec_checkpoint', type=str, default=".", help="checkpoint to load decoder from (Default: None)")
+parser.add_argument('--outlang_checkpoint', type=str, default=".", help="checkpoint to load outlang from (Default: None)")
+
 opt = parser.parse_args()
 print(opt)
 
@@ -164,7 +171,6 @@ def prepare_data(lang1_name, lang2_name, do_filter=True, MIN_LENGTH=opt.MIN_LENG
         for pair in pairs:
             input_lang.index_words(pair[0])
         output_lang.get_vocab(list(np.array(pairs)[:, 1]), from_filenames=False)
-    
     print('Indexed %d words in input language, %d words in output' % (input_lang.n_words, output_lang.n_words))
     return input_lang, output_lang, pairs
     
@@ -182,7 +188,7 @@ def variable_from_sentence(lang, sentence, char=False):
         var = var.cuda()
     return var
 
-def variables_from_pair(pair):
+def variables_from_pair(pair, input_lang, output_lang):
     input_variable = variable_from_sentence(input_lang, pair[0])
     target_variable = variable_from_sentence(output_lang, pair[1], char=target_char)
     return (input_variable, target_variable)
@@ -330,7 +336,7 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
     return loss.data[0] / target_length
     
-def trainIters(encoder, decoder, n_iters, pairs, learning_rate=0.01, 
+def trainIters(encoder, decoder, n_iters, pairs, in_lang, out_lang, learning_rate=0.01, 
                print_every=5000, save_every=5000):
     
     start = time.time()
@@ -346,10 +352,11 @@ def trainIters(encoder, decoder, n_iters, pairs, learning_rate=0.01,
     else: 
         raise ValueError('Optimizer options not found: Select SGD or Adam') 
     
-    training_pairs = [variables_from_pair(random.choice(pairs))
+    training_pairs = [variables_from_pair(random.choice(pairs), in_lang, out_lang)
                       for i in range(n_iters)]
     criterion = nn.NLLLoss()
-
+    encoder.train()
+    decoder.train()
     for iter in range(1, n_iters + 1):
         training_pair = training_pairs[iter - 1]
         input_variable = training_pair[0]
@@ -373,18 +380,22 @@ def trainIters(encoder, decoder, n_iters, pairs, learning_rate=0.01,
 #########
 # Train #
 #########
+def main():
+    input_lang, output_lang, pairs = prepare_data(opt.lang1, opt.lang2, char_output=target_char)
+    torch.save(output_lang, "{}/output_lang.pth".format(opt.out_dir))
+    encoder1 = EncoderRNN(input_lang.n_words, opt.hidden_size)
+    attn_decoder1 = AttnDecoderRNN(opt.hidden_size, output_lang.n_words,
+                                   opt.n_layers, dropout_p=opt.dropout_dec_p)
 
-input_lang, output_lang, pairs = prepare_data(opt.lang1, opt.lang2, char_output=target_char)
+    if opt.use_cuda:
+        encoder1 = encoder1.cuda()
+        attn_decoder1 = attn_decoder1.cuda()
 
-encoder1 = EncoderRNN(input_lang.n_words, opt.hidden_size)
-attn_decoder1 = AttnDecoderRNN(opt.hidden_size, output_lang.n_words,
-                               opt.n_layers, dropout_p=opt.dropout_dec_p)
+    trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, in_lang=input_lang, out_lang=output_lang, learning_rate=opt.learning_rate, print_every=opt.print_every, save_every=opt.save_every)
 
-if opt.use_cuda:
-    encoder1 = encoder1.cuda()
-    attn_decoder1 = attn_decoder1.cuda()
+    torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
+    torch.save(attn_decoder1.state_dict(), "{}/saved_decoder_final.pth".format(opt.out_dir))         
 
-trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, learning_rate=opt.learning_rate, print_every=100)
-
-torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
-torch.save(attn_decoder1.state_dict(), "{}/saved_decoder_final.pth".format(opt.out_dir))         
+if __name__ == '__main__':
+    main()
+    
