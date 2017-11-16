@@ -9,9 +9,9 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
+from comet_ml import Experiment
 import re
 from nltk.translate import bleu_score
-from comet_ml import Experiment
 
 """
 Created on Wed Nov  8 22:31:02 2017
