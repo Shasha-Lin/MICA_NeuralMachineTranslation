@@ -54,6 +54,8 @@ PAD_token = 0
 SOS_token = 1
 EOS_token = 2
 
+# flag for character encoding
+target_char = (opt.model_type == 'bpe2char')
 
 class Lang:
     def __init__(self, name):
@@ -182,7 +184,7 @@ def variable_from_sentence(lang, sentence, char=False):
 
 def variables_from_pair(pair):
     input_variable = variable_from_sentence(input_lang, pair[0])
-    target_variable = variable_from_sentence(output_lang, pair[1], char=True)
+    target_variable = variable_from_sentence(output_lang, pair[1], char=target_char)
     return (input_variable, target_variable)
     
 ################################
@@ -372,7 +374,7 @@ def trainIters(encoder, decoder, n_iters, pairs, learning_rate=0.01,
 # Train #
 #########
 
-input_lang, output_lang, pairs = prepare_data(opt.lang1, opt.lang2, char_output=True)
+input_lang, output_lang, pairs = prepare_data(opt.lang1, opt.lang2, char_output=target_char)
 
 encoder1 = EncoderRNN(input_lang.n_words, opt.hidden_size)
 attn_decoder1 = AttnDecoderRNN(opt.hidden_size, output_lang.n_words,
