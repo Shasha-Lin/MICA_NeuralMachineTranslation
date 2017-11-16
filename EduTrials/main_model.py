@@ -9,6 +9,8 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
+import re
+from nltk.translate import bleu_score
 from comet_ml import Experiment
 
 """
@@ -26,7 +28,7 @@ parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=5, help='Min Length
 parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=200, help='Max Length of sequence (Output side)')
 parser.add_argument('--lang1', type=str, default="en", help='Input Language')
 parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
-parser.add_argument('--use_cuda', action='store_false', help='IF USE CUDA (Default == True)')
+parser.add_argument('--use_cuda', action='store_true', help='IF USE CUDA (Default == False)')
 parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='Teacher forcing ratio for encoder')
 parser.add_argument('--hidden_size', type=int, default=256, help='Size of hidden layer')
 parser.add_argument('--n_iters', type=int, default=3000, help='Number of single iterations through the data')
@@ -36,7 +38,7 @@ parser.add_argument('--dropout_dec_p', type=float, default=0.1, help='Dropout (%
 parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
 parser.add_argument('--main_data_dir', type=str, default= "/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Model_ready/", help='Directory where data is saved (in folders tain/dev/test)')
 parser.add_argument('--out_dir', type=str, default="", help="Directory to save the models state dict (No default)")
-parser.add_argument('--optimizer', type=str, default="", help="Optimizer (Adam vs SGD). Default: Adam")
+parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
 opt = parser.parse_args()
 print(opt)
 
@@ -146,11 +148,11 @@ def read_langs(lang1, lang2, set_type="train", term="txt", reverse=False):
 def filterPair(p, min_length_input, min_length_target, max_length_input, max_length_target):
     return len(p[0].split(' ')) > min_length_input and \
         len(p[1].split(' ')) > min_length_target and \
-        len(p[0].split(' ')) < max_length and \
-        len(p[1].split(' ')) < max_length
+        len(p[0].split(' ')) < max_length_input and \
+        len(p[1].split(' ')) < max_length_target
 
-def filterPairs(pairs, max_length):
-    return [pair for pair in pairs if filterPair(pair, max_length)]
+def filterPairs(pairs, min_length_input, min_length_target, max_length_input, max_length_target):
+    return [pair for pair in pairs if filterPair(pair, min_length_input, min_length_target, max_length_input, max_length_target)]
 
 
 def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
@@ -255,6 +257,94 @@ class AttnDecoderRNN(nn.Module):
             return result.cuda()
         else:
             return result    
+
+##############
+# Evaluation #
+##############
+
+def evaluate(input_lang, output_lang, encoder, decoder, sentence, max_length):
+    """
+    Function that generate translation.
+    First, feed the source sentence into the encoder and obtain the hidden states from encoder.
+    Secondly, feed the hidden states into the decoder and unfold the outputs from the decoder.
+    Lastly, for each outputs from the decoder, collect the corresponding words in the target language's vocabulary.
+    And collect the attention for each output words.
+    @param encoder: the encoder network
+    @param decoder: the decoder network
+    @param sentence: string, a sentence in source language to be translated
+    @param max_length: the max # of words that the decoder can return
+    
+    @output decoded_words: a list of words in target language
+    @output decoder_attentions: a list of vector, each of which sums up to 1.0
+    """
+    # process input sentence
+    input_variable = variable_from_sentence(input_lang, sentence)
+    input_length = input_variable.size()[0]
+    
+    # encode the source lanugage
+    encoder_hidden = encoder.initHidden()
+    encoder_outputs = Variable(torch.zeros(max_length, encoder.hidden_size))
+    encoder_outputs = encoder_outputs.cuda() if opt.use_cuda else encoder_outputs
+    for ei in range(input_length):
+        encoder_output, encoder_hidden = encoder(input_variable[ei],
+                                                 encoder_hidden)
+        encoder_outputs[ei] = encoder_outputs[ei] + encoder_output[0][0]
+    
+    # decode the context vector
+    decoder_hidden = encoder_hidden # decoder starts from the last encoding sentence
+    decoder_input = Variable(torch.LongTensor([[SOS_token]]))  # SOS
+    decoder_input = decoder_input.cuda() if opt.use_cuda else decoder_input
+    # output of this function
+    decoded_words = []
+    decoder_attentions = torch.zeros(max_length, max_length)
+    # unfold
+    for di in range(max_length):
+        # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
+        decoder_output, decoder_hidden, decoder_attention = decoder(
+            decoder_input, decoder_hidden, encoder_output, encoder_outputs)
+
+        decoder_attentions[di] = decoder_attention.data
+        topv, topi = decoder_output.data.topk(1)
+        ni = topi[0][0]
+
+        if ni == EOS_token:
+            decoded_words.append('<EOS>')
+            break
+        else:
+            decoded_words.append(output_lang.index2word[ni])
+        
+        decoder_input = Variable(torch.LongTensor([[ni]]))
+        decoder_input = decoder_input.cuda() if opt.use_cuda else decoder_input
+
+    return decoded_words, decoder_attentions[:di + 1]
+
+def evaluateRandomly(input_lang, output_lang, encoder, decoder, max_length, n=10):
+    """
+    Randomly select a English sentence from the dataset and try to produce its French translation.
+    Note that you need a correct implementation of evaluate() in order to make this function work.
+    """
+    for i in range(n):
+        pair = random.choice(pairs)
+        print('>', pair[0])
+        print('=', pair[1])
+        output_words, attentions = evaluate(input_lang, output_lang, encoder, decoder, pair[0], max_length)
+        output_sentence = ' '.join(output_words)
+        print('<', output_sentence)
+        print('')
+        
+def eval_single(input_lang, output_lang, encoder, decoder, string, max_length=opt.MAX_LENGTH_TARGET):
+    
+    words, tensor = evaluate(encoder, decoder, string, max_length=opt.MAX_LENGTH_TARGET)
+    words = ' '.join(words)
+    words = re.sub(' <EOS>', '', words)
+    return(words)
+    
+def evaluate_dev(input_lang, output_lang, encoder, decoder, list_strings, 
+                 max_length=opt.MAX_LENGTH_TARGET):
+    
+    output = [eval_single(input_lang, output_lang, encoder, decoder, x[0], max_length) for x in list_strings]
+    
+    return(output)
             
 ############################
 # Training & training loop #
@@ -329,8 +419,9 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
     return loss.data[0] / target_length
     
-def trainIters(encoder, decoder, n_iters, pairs, learning_rate=0.01, 
-               print_every=5000, save_every=5000):
+def trainIters(encoder, decoder, n_iters, pairs, pairs_eval, learning_rate=opt.learning_rate, 
+               print_every=5000, save_every=5000, eval_every=5000, 
+               input_lang=input_lang, output_lang=output_lang):
     
     start = time.time()
     print_loss_total = 0  # Reset every print_every
@@ -364,26 +455,35 @@ def trainIters(encoder, decoder, n_iters, pairs, learning_rate=0.01,
             print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
                                          iter, iter / n_iters * 100, print_loss_avg))
             experiment.log_metric("Train loss", print_loss_avg)
-
+        
         if iter % save_every == 0: 
             torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, iter))
             torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, iter))
+            
+        if iter % save_every == 0: 
+            prediction = evaluate_dev(input_lang, output_lang, encoder, decoder, pairs_eval)
+            target_eval = [x[1] for x in pairs_eval]
+            bleu_corpus = bleu_score.corpus_bleu(target_eval, prediction)
+            experiment.log_metric("BLEU score", bleu_corpus)
+            evaluateRandomly(input_lang, output_lang, encoder1, attn_decoder1, max_length=opt.MAX_LENGTH_TARGET, n=5)
+            
         
 #########
 # Train #
 #########
 
 input_lang, output_lang, pairs = prepare_data(opt.lang1, opt.lang2, set_type="train")
+input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1, opt.lang2, set_type="dev")
 
 encoder1 = EncoderRNN(input_lang.n_words, opt.hidden_size)
 attn_decoder1 = AttnDecoderRNN(opt.hidden_size, output_lang.n_words,
-                               opt.n_layers, dropout_p=opt.dropout_dec_p)
+                               opt.n_layers, dropout_p=opt.dropout_dec_p, max_length=opt.MAX_LENGTH_TARGET)
 
 if opt.use_cuda:
     encoder1 = encoder1.cuda()
     attn_decoder1 = attn_decoder1.cuda()
 
-trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, learning_rate=opt.learning_rate, print_every=1000)
+trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, pairs_eval=pairs_dev, learning_rate=opt.learning_rate, print_every=5000)
 
 torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
 torch.save(attn_decoder1.state_dict(), "{}/saved_decoder_final.pth".format(opt.out_dir))         
