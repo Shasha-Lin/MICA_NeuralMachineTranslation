@@ -362,7 +362,8 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
     
-def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=opt.MAX_LENGTH_TARGET):
+def train(input_variable, target_variable, encoder, decoder, 
+            encoder_optimizer, decoder_optimizer, criterion, max_length=opt.MAX_LENGTH_TARGET):
     
     encoder_hidden = encoder.initHidden()
 
@@ -419,9 +420,9 @@ def train(input_variable, target_variable, encoder, decoder, encoder_optimizer, 
 
     return loss.data[0] / target_length
     
-def trainIters(encoder, decoder, n_iters, pairs, pairs_eval, learning_rate=opt.learning_rate, 
-               print_every=5000, save_every=5000, eval_every=5000, 
-               input_lang=input_lang, output_lang=output_lang):
+def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_eval, 
+	           learning_rate=opt.learning_rate, 
+               print_every=5000, save_every=5000, eval_every=5000):
     
     start = time.time()
     print_loss_total = 0  # Reset every print_every
@@ -483,7 +484,7 @@ if opt.use_cuda:
     encoder1 = encoder1.cuda()
     attn_decoder1 = attn_decoder1.cuda()
 
-trainIters(encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, pairs_eval=pairs_dev, learning_rate=opt.learning_rate, print_every=5000)
+trainIters(input_lang, output_lang, encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, pairs_eval=pairs_dev, learning_rate=opt.learning_rate, print_every=5000)
 
 torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
 torch.save(attn_decoder1.state_dict(), "{}/saved_decoder_final.pth".format(opt.out_dir))         
