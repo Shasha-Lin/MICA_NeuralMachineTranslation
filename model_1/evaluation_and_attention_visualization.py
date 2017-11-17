@@ -1,6 +1,8 @@
 # Code source : https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation-batched.ipynb
 
+import nltk
 from training import *
+from beam_search import *
 
 %matplotlib inline
 
@@ -45,34 +47,17 @@ def evaluate(input_seq, max_length=MAX_LENGTH):
         decoder_input = decoder_input.cuda()
 
     # Store output words and attention states
-    decoded_words = []
     decoder_attentions = torch.zeros(max_length + 1, max_length + 1)
     
-    # Run through decoder
-    for di in range(max_length):
-        decoder_output, decoder_hidden, decoder_attention = decoder(
-            decoder_input, decoder_hidden, encoder_outputs
-        )
-        decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).cpu().data
-
-        # Choose top word from output
-        topv, topi = decoder_output.data.topk(1)
-        ni = topi[0][0]
-        if ni == EOS_token:
-            decoded_words.append('<EOS>')
-            break
-        else:
-            decoded_words.append(output_lang.index2word[ni])
-            
-        # Next input is chosen word
-        decoder_input = Variable(torch.LongTensor([ni]))
-        if USE_CUDA: decoder_input = decoder_input.cuda()
+    kmax = 2
+    decoded_words, decoder_attentions = get_seq_through_beam_search(max_length, decoder, decoder_input, 
+                                                                    decoder_hidden, decoder_attentions, encoder_outputs, kmax )
 
     # Set back to training mode
     encoder.train(True)
     decoder.train(True)
     
-    return decoded_words, decoder_attentions[:di+1, :len(encoder_outputs)]
+    return decoded_words, decoder_attentions[:len(decoded_words)+1, :len(encoder_outputs)]
 
 
 # We can evaluate random sentences from the training set and print out the input, target, and output to make some subjective quality judgements:
@@ -108,11 +93,15 @@ def show_attention(input_sentence, output_words, attentions):
 
 def evaluate_and_show_attention(input_sentence, target_sentence=None):
     output_words, attentions = evaluate(input_sentence)
+    
+    bleu_score = nltk.translate.bleu_score.sentence_bleu([target_sentence], ' '.join(output_words[:-1]))
+
     output_sentence = ' '.join(output_words)
     print('>', input_sentence)
     if target_sentence is not None:
         print('=', target_sentence)
     print('<', output_sentence)
+    print("BLUE SCORE IS:", bleu_score)
     
     show_attention(input_sentence, output_words, attentions)
     
