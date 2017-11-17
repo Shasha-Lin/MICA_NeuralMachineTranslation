@@ -75,7 +75,8 @@ def evaluate(input_seq, max_length=MAX_LENGTH):
     return decoded_words, decoder_attentions[:di+1, :len(encoder_outputs)]
 
 
-# We can evaluate random sentences from the training set and print out the input, target, and output to make some subjective quality judgements:
+# We can evaluate random sentences from the training set and print out the input,
+# target, and output to make some subjective quality judgements:
 def evaluate_randomly():
     [input_sentence, target_sentence] = random.choice(pairs)
     evaluate_and_show_attention(input_sentence, target_sentence)

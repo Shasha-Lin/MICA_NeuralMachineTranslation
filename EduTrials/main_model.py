@@ -195,6 +195,8 @@ def variables_from_pair(pair):
 # Both classes form Lab - Week 9 (Lab8)   
 
 class EncoderRNN(nn.Module):
+    # TODO: add dropoput
+    # TODO: add n_layers and bidirectional in GRU
     def __init__(self, input_size, hidden_size, n_layers=1):
         super(EncoderRNN, self).__init__()
         self.n_layers = n_layers
