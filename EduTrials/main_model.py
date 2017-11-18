@@ -219,6 +219,8 @@ class EncoderRNN(nn.Module):
             return result
         
 class AttnDecoderRNN(nn.Module):
+    # TODO add n_layers in GRU
+    # TODO add Luong Attention
     def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1, max_length=opt.MAX_LENGTH_TARGET):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
@@ -265,6 +267,7 @@ class AttnDecoderRNN(nn.Module):
 ##############
 
 def evaluate(input_lang, output_lang, encoder, decoder, sentence, max_length):
+    # TODO: Set train vs eval mode after adding dropout
     """
     Function that generate translation.
     First, feed the source sentence into the encoder and obtain the hidden states from encoder.
