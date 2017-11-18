@@ -24,15 +24,15 @@ class BahdanauAttnDecoderRNN(nn.Module):
         self.embedding = nn.Embedding(output_size, hidden_size)
         self.dropout = nn.Dropout(dropout_p)
         self.attn = Attn('concat', hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout_p)
-        self.out = nn.Linear(hidden_size, output_size)
+        self.gru = nn.GRU(2*hidden_size, hidden_size, n_layers, dropout=dropout_p)
+        self.out = nn.Linear(hidden_size*2, output_size)
     
     def forward(self, word_input, last_hidden, encoder_outputs):
         # Note: we run this one step at a time
         # TODO: FIX BATCHING
         
         # Get the embedding of the current input word (last output word)
-        word_embedded = self.embedding(word_input).view(1, 1, -1) # S=1 x B x N
+        word_embedded = self.embedding(word_input).view(1, word_input.data.shape[0], -1) # S=1 x B x N
         word_embedded = self.dropout(word_embedded)
         
         # Calculate attention weights and apply to encoder outputs
@@ -46,7 +46,7 @@ class BahdanauAttnDecoderRNN(nn.Module):
         
         # Final output layer
         output = output.squeeze(0) # B x N
-        output = F.log_softmax(self.out(torch.cat((output, context), 1)))
+        output = F.log_softmax(self.out(torch.cat((output, context.squeeze(0)), 1)))
         
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights

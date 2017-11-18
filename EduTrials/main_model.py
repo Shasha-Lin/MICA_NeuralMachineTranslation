@@ -339,7 +339,7 @@ def evaluateRandomly(input_lang, output_lang, encoder, decoder, max_length, n=10
         
 def eval_single(input_lang, output_lang, encoder, decoder, string, max_length=opt.MAX_LENGTH_TARGET):
     
-    words, tensor = evaluate(encoder, decoder, string, max_length=opt.MAX_LENGTH_TARGET)
+    words, tensor = evaluate(input_lang, output_lang, encoder, decoder, string, max_length=opt.MAX_LENGTH_TARGET)
     words = ' '.join(words)
     words = re.sub(' <EOS>', '', words)
     return(words)

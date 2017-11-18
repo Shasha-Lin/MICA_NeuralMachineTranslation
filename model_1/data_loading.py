@@ -28,6 +28,11 @@ from masked_cross_entropy import *
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
+import io
+import torchvision
+from PIL import Image
+import visdom
+vis = visdom.Visdom()
 %matplotlib inline
 
 # If GPU being used, set TRUE else FALSE:
