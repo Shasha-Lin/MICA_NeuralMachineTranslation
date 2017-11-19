@@ -106,9 +106,10 @@ This outputs the files train.en.bpe and train.fr.bpe, which are the english and 
 Finally, pairs are build and exporter using ```file_merger.py```. To run it, just run the *runner* file, modifying local directories inside this shell file. 
 This files can be run with the following script: 
 ```sh
-$ bash file_merge-runner.sh
+$ bash file_merge-runner-all.sh
 ```
 
 This file requires ```argparse``` to be installed locally.
 
-This code creates the pairs for a seq2seq model, using the tokenized files, and the pairs for a bpe2bpe model using the tokenized and bpe'd files. 
+This code creates the pairs for a seq2seq model, using the tokenized files, the pairs for a bpe2bpe model using the tokenized and bpe files, and the pairs for a bpe2char model using the tokenized and bpe files. You will need to specify the location of the data directories within the file. 
+
