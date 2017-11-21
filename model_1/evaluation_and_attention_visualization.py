@@ -97,7 +97,7 @@ def evaluate_and_show_attention(input_sentence, target_sentence=None):
     bleu_score = nltk.translate.bleu_score.sentence_bleu([target_sentence], ' '.join(output_words[:-1]))
 
     output_sentence = ' '.join(output_words)
-    print('>', input_sentence)
+    print('>', input_sentence
     if target_sentence is not None:
         print('=', target_sentence)
     print('<', output_sentence)

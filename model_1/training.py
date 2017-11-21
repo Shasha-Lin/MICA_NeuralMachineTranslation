@@ -12,7 +12,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
     # Zero gradients of both optimizers
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
-    loss = 0 # Added onto for each word
+    loss = 0
 
     # Run words through encoder
     encoder_outputs, encoder_hidden = encoder(input_batches, input_lengths, None)
@@ -42,8 +42,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
     loss = masked_cross_entropy(
         all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
         target_batches.transpose(0, 1).contiguous(), # -> batch x seq
-        target_lengths
-    )
+        target_lengths)
     loss.backward()
     
     # Clip gradient norms

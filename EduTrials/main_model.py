@@ -346,11 +346,11 @@ def eval_single(input_lang, output_lang, encoder, decoder, string, max_length=op
     
 def evaluate_dev(input_lang, output_lang, encoder, decoder, list_strings, 
                  max_length=opt.MAX_LENGTH_TARGET):
-    
+
     output = [eval_single(input_lang, output_lang, encoder, decoder, x[0], max_length) for x in list_strings]
-    
     return(output)
-            
+
+
 ############################
 # Training & training loop #
 ############################
