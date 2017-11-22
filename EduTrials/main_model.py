@@ -158,7 +158,7 @@ def filterPairs(pairs, min_length_input, min_length_target, max_length_input, ma
 def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
-    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, term=opt.model_type, reverse=reverse)
+    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, set_type=set_type,  term=opt.model_type, reverse=reverse)
     print("Read %d sentence pairs" % len(pairs))
  
     pairs = filterPairs(pairs, opt.MIN_LENGTH_INPUT, opt.MIN_LENGTH_TARGET, opt.MAX_LENGTH_INPUT, opt.MAX_LENGTH_TARGET)
@@ -461,7 +461,7 @@ def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_
             torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, iter))
             torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, iter))
             
-        if iter % save_every == 0: 
+        if iter % eval_every == 0: 
             prediction = evaluate_dev(input_lang, output_lang, encoder, decoder, pairs_eval)
             target_eval = [x[1] for x in pairs_eval]
             bleu_corpus = bleu_score.corpus_bleu(target_eval, prediction)
