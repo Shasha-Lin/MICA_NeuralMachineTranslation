@@ -55,7 +55,7 @@ experiment.log_multiple_params(hyper_params)
 PAD_token = 0
 SOS_token = 1
 EOS_token = 2
-
+UNK_token = 3
 
 class Lang:
     def __init__(self, name):
@@ -63,8 +63,8 @@ class Lang:
         self.trimmed = False
         self.word2index = {}
         self.word2count = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
-        self.n_words = 3 # Count default tokens
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3: "UNK"}
+        self.n_words = 4 # Count default tokens
 
     def index_words(self, sentence):
         for word in sentence.split(' '):
@@ -173,7 +173,20 @@ def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
     return input_lang, output_lang, pairs
     
 def indexes_from_sentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence.split(' ')]
+    
+    try: 
+        val = [lang.word2index[word] for word in sentence.split(' ')]
+    except KeyError: 
+        # Do it individually. Means one word is not on dictionary: 
+        val = []
+        for word in sentence.split(' '):
+            try: 
+                indexed = lang.word2index[word]
+                val.append(indexed)
+            except KeyError:
+                val.append(3)
+                
+    return val
 
 def variable_from_sentence(lang, sentence):
     indexes = indexes_from_sentence(lang, sentence)
