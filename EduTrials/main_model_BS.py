@@ -295,8 +295,10 @@ def get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidd
         if di == 0:
             decoder_output, decoder_hidden, decoder_attention = decoder( decoder_input, decoder_hidden, encoder_output, encoder_outputs )
             topv, topi = decoder_output.data.topk(kmax)
-            topv = topv[0].numpy()
-            topi = topi[0].numpy()
+            #topv = topv[0].numpy()
+            #topi = topi[0].numpy()
+            topv = topv[0]
+            topi = topi[0]
             #print(decoder_attentions.size()) # torch.Size([20, 20])
             #print(decoder_attention.size()) # torch.Size([1, 20])
             #print(decoder_attention.squeeze(0).squeeze(0).cpu().data.size()) # torch.Size([20])
