@@ -381,6 +381,7 @@ def evaluate(input_lang, output_lang, encoder, decoder, sentence, max_length, km
     # output of this function
     decoded_words = []
     decoder_attentions = torch.zeros(max_length, max_length)
+    decoder_attentions = decoder_attentions.cuda() if opt.use_cuda else decoder_attentions
     
     decoded_words, decoder_attentions = get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidden, 
                                                                     decoder_attentions, encoder_output, encoder_outputs, kmax)
