@@ -295,16 +295,8 @@ def get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidd
         if di == 0:
             decoder_output, decoder_hidden, decoder_attention = decoder( decoder_input, decoder_hidden, encoder_output, encoder_outputs )
             topv, topi = decoder_output.data.topk(kmax)
-            #topv = topv[0].numpy()
-            #topi = topi[0].numpy()
             topv = topv[0]
             topi = topi[0]
-            #print(decoder_attentions.size()) # torch.Size([20, 20])
-            #print(decoder_attention.size()) # torch.Size([1, 20])
-            #print(decoder_attention.squeeze(0).squeeze(0).cpu().data.size()) # torch.Size([20])
-            #print(decoder_attention.squeeze(0).cpu().data.size()) # torch.Size([20])
-            #print(decoder_attention.cpu().data.size()) # torch.Size([1, 20])
-            #decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).cpu().data
             decoder_attentions[di,:decoder_attention.size(1)] += decoder_attention.data
             update_dictionary(target_sequence, topv, topi, None, decoder_hidden, decoder_attentions)
         else:
@@ -314,14 +306,12 @@ def get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidd
                 inp = int(keys[i].split("-")[-1] if len(keys[i]) > 1 else keys[i])
                 if inp != EOS_token:
                     dec_input = Variable(torch.LongTensor([inp]))
+                    dec_input = dec_input.cuda() if opt.use_cuda else dec_input
                     decoder_output, dec_hidden, decoder_attention = decoder( dec_input, temp[keys[i]][1], encoder_output, encoder_outputs)
                     topv, topi = decoder_output.data.topk(kmax)
-                    #topv = topv[0].numpy()
-                    #topi = topi[0].numpy()
                     topv = topv[0]
                     topi = topi[0]
                     dec_attns = temp[keys[i]][2]
-                    #dec_attns[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).cpu().data
                     dec_attns[di,:decoder_attention.size(1)] += decoder_attention.data
                     update_dictionary(target_sequence, topv, topi, keys[i], dec_hidden, dec_attns)
         
@@ -495,7 +485,7 @@ def train(input_variable, target_variable, encoder, decoder,
     return loss.data[0] / target_length
     
 def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_eval, 
-	           learning_rate=opt.learning_rate, 
+               learning_rate=opt.learning_rate, 
                print_every=5000, save_every=5000, eval_every=10000):
     
     start = time.time()
@@ -540,6 +530,7 @@ def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_
             target_eval = [x[1] for x in pairs_eval]
             bleu_corpus = bleu_score.corpus_bleu(target_eval, prediction)
             experiment.log_metric("BLEU score", bleu_corpus)
+            print("NLTK's Blue score: {} at iter {}".format(round(bleu_corpus, 2), iter))
             evaluateRandomly(input_lang, output_lang, encoder1, attn_decoder1, max_length=opt.MAX_LENGTH_TARGET, n=5)
             
         
@@ -559,7 +550,8 @@ if opt.use_cuda:
     attn_decoder1 = attn_decoder1.cuda()
 
 trainIters(input_lang, output_lang, encoder1, attn_decoder1, n_iters=opt.n_iters, 
-           pairs=pairs, pairs_eval=pairs_dev, learning_rate=opt.learning_rate)
+           pairs=pairs, pairs_eval=pairs_dev, learning_rate=opt.learning_rate,
+           print_every=5000, save_every=100000, eval_every=100000)
 
 torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
 torch.save(attn_decoder1.state_dict(), "{}/saved_decoder_final.pth".format(opt.out_dir))         
