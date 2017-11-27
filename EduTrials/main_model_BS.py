@@ -40,6 +40,7 @@ parser.add_argument('--main_data_dir', type=str, default= "/Users/eduardofierro/
 parser.add_argument('--out_dir', type=str, default="", help="Directory to save the models state dict (No default)")
 parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
 parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
+parser.add_argument('--criterion', type=str, default="NLLLoss", help="Beam search Topk to search")
 opt = parser.parse_args()
 print(opt)
 
@@ -484,7 +485,7 @@ def train(input_variable, target_variable, encoder, decoder,
 
     return loss.data[0] / target_length
     
-def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_eval, 
+def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_eval, loss_criterion,
                learning_rate=opt.learning_rate, 
                print_every=5000, save_every=5000, eval_every=10000):
     
@@ -503,7 +504,8 @@ def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_
     
     training_pairs = [variables_from_pair(random.choice(pairs))
                       for i in range(n_iters)]
-    criterion = nn.NLLLoss()
+                      
+    criterion = loss_criterion
 
     for iter in range(1, n_iters + 1):
         training_pair = training_pairs[iter - 1]
@@ -549,8 +551,15 @@ if opt.use_cuda:
     encoder1 = encoder1.cuda()
     attn_decoder1 = attn_decoder1.cuda()
 
+if opt.criterion == "NLLLoss": 
+    lcriterion = nn.NLLLoss()
+elif opt.criterion == "CrossEntropyLoss": 
+    lcriterion = nn.CrossEntropyLoss()
+else:
+    raise ValueError("criterion nof found")
+
 trainIters(input_lang, output_lang, encoder1, attn_decoder1, n_iters=opt.n_iters, 
-           pairs=pairs, pairs_eval=pairs_dev, learning_rate=opt.learning_rate,
+           pairs=pairs, pairs_eval=pairs_dev, loss_criterion=lcriterion, learning_rate=opt.learning_rate,
            print_every=5000, save_every=100000, eval_every=100000)
 
 torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
