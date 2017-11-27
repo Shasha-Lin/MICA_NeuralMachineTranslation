@@ -11,6 +11,7 @@ import math
 import nltk
 import torch
 import torch.nn as nn
+from torch.nn import functional
 from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
