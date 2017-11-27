@@ -7,7 +7,6 @@ import random
 import time
 import datetime
 import math
-import sconce
 
 import nltk
 import torch
@@ -653,19 +652,6 @@ if USE_CUDA:
     encoder.cuda()
     decoder.cuda()
 
-job = sconce.Job('seq2seq-translate', {
-    #'attn_model': attn_model,
-    'n_layers': opt.n_layers,
-    'dropout': opt.dropout,
-    'hidden_size': opt.hidden_size,
-    'learning_rate': opt.learning_rate,
-    'clip': opt.clip,
-    'teacher_forcing_ratio': opt.teacher_forcing_ratio,
-    #'decoder_learning_ratio': decoder_learning_ratio,
-})
-job.plot_every = plot_every
-job.log_every = print_every
-
 # Keep track of time elapsed and running averages
 start = time.time()
 plot_losses = []
@@ -697,10 +683,9 @@ while epoch < opt.n_epochs:
     eca += ec
     dca += dc
 
-    job.record(epoch, loss)
-
     if epoch % print_every == 0:
         print_loss_avg = print_loss_total / print_every
+        experiment.log_metric("Train loss", print_loss_avg)
         print_loss_total = 0
         print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / opt.n_epochs), epoch, epoch / opt.n_epochs * 100, print_loss_avg)
         print(print_summary)
