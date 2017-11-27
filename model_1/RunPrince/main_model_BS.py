@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import unicodedata
 import string
 import re
@@ -5,7 +7,6 @@ import random
 import time
 import datetime
 import math
-import socket
 import sconce
 
 import nltk
@@ -19,7 +20,7 @@ import numpy as np
 import io
 import argparse
 
-
+print("All modules imported")
 
 ######## File params ########
 
