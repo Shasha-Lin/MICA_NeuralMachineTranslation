@@ -82,7 +82,7 @@ def pad_seq(seq, max_length):
     return seq
 
 
-def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, char_output=False):
+def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, max_length_input, max_length_output, char_output=False):
     input_seqs = []
     target_seqs = []
 
@@ -97,10 +97,14 @@ def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, char_outp
     input_seqs, target_seqs = zip(*seq_pairs)
     
     # For input and target sequences, get array of lengths and pad with 0s to max length
-    input_lengths = [len(s) for s in input_seqs]
-    input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
-    target_lengths = [len(s) for s in target_seqs]
-    target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
+    # input_lengths = [len(s) for s in input_seqs]
+    # input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
+    input_lengths = [max_length_input for s in input_seqs]
+    input_padded = [pad_seq(s, max_length_input) for s in input_seqs]
+    #target_lengths = [len(s) for s in target_seqs]
+    # target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
+    target_lengths = [max_length_output for s in target_seqs]
+    target_padded = [pad_seq(s, max_length_output) for s in target_seqs]
 
     # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
     input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)

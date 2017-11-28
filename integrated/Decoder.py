@@ -71,50 +71,101 @@ class AttnDecoderRNN(nn.Module):
         
         #self.embedding = nn.Embedding(self.output_size, self.hidden_size_dec)
         self.embedding = nn.Embedding(self.output_size, self.hidden_size_enc)
-
-        self.attn = nn.Linear(self.batch_size* self.hidden_size_dec * 2, self.max_length)
+        # original attention commented out
+        self.attn = nn.Linear(1* self.hidden_size_dec * 2, self.max_length)
+        # self.attn = nn.Linear(1* self.hidden_size_dec * 2, self.hidden_size_dec)
         self.attn_combine = nn.Linear(self.hidden_size_enc * 2, self.hidden_size_dec)
         self.dropout = nn.Dropout(self.dropout_p)
         self.gru = nn.GRU(self.hidden_size_dec, self.hidden_size_dec)
         self.out = nn.Linear(self.hidden_size_dec, self.output_size)
 
     def forward(self, input_data, hidden, encoder_outputs):
-        print("HERE!!!!!")
-        print(input_data.size())
-        print(self.embedding(input_data).size())
         embedded = self.embedding(input_data).view(1, input_data.data.shape[0], -1) # S=1 x B x N
 
-        print("HERE!!!!!")
         embedded = self.dropout(embedded)
-        print("HERE!!!!!")
         print("calc attn_weights")
-        print(embedded[0].size())
-        print(hidden[0].size())
-        print(torch.cat((embedded[0], 
-                                 hidden[0])).size())
         # print(self.attn())
         # dimension issues here 
         print(embedded[0].size())
-        print(hidden[0].view(self.batch_size,-1,1).size())
-        print(torch.cat((embedded[0], 
-                                 hidden[0].view(self.batch_size,-1,1)), 1).size())
-        print("here just to make sure")
-        print(self.hidden_size_enc *2, self.max_length)
-
-        print(self.attn(torch.cat((embedded[0], 
-                                 hidden[0].view(self.batch_size,-1,1)), 1).view(1,-1)).size())
-        print("here just to make sure 2")
-
+        print(hidden[0].view(self.batch_size,1,-1).size())
+        print(hidden[0].size())
+        
+        ### original code
         attn_weights = F.softmax(
-            self.attn(torch.cat((embedded[0], 
-                                 hidden[0].view(self.batch_size,-1,1)), 1).view(1,-1)))
-        print("calc attn_applied")
+            self.attn(torch.cat((embedded[0], hidden[0]), 1)))
+        print("here")
         print(attn_weights.unsqueeze(0).size())
         print(encoder_outputs.unsqueeze(0).size())
-        print(encoder_outputs.size())
+        print(encoder_outputs.view(self.batch_size, self.max_length, -1).size())
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
-                                 encoder_outputs)
                                  #encoder_outputs.unsqueeze(0))
+                                 encoder_outputs.view(self.batch_size, self.max_length, -1)
+                                )
+        print("here")
+        output = torch.cat((embedded[0], attn_applied[0]), 1)
+        output = self.attn_combine(output).unsqueeze(0)
+        ## end original code
+        
+        #attn_weights = F.softmax(
+        #    self.attn(torch.cat((embedded[0],
+        #                         hidden[0].view(self.batch_size,1, -1)), 
+        #                        0).view(self.batch_size,-1)
+        #             )
+        #)
+        #print("calc attn_applied")
+        #print(attn_weights.unsqueeze(1).size()) # 64 x 1 x 200
+        #print(encoder_outputs.view(self.batch_size, self.hidden_size_dec, -1).size()) # 64 x 256 x 98 (last number varies depending on batch)
+        #attn_applied = torch.bmm(attn_weights.unsqueeze(1),
+        #                         encoder_outputs.view(self.batch_size, self.hidden_size_dec, -1))
+        #print("Did we make it here????")
+                                 #encoder_outputs.unsqueeze(0))
+        #print(embedded.size())
+        #print(embedded[0].size()) # 64 x 256
+        #print(attn_applied[0].size()) # 1 x 102
+        #output = torch.cat((embedded[0], attn_applied[0]), 1)
+        #print("here????")
+        #print(output.size()) #torch.Size([1, 291])
+        #output = self.attn_combine(output).unsqueeze(0)
+        print("here?")
+        for i in range(self.n_layers):
+            output = F.relu(output)
+            output, hidden = self.gru(output, hidden)
+
+        output = F.log_softmax(self.out(output[0]))
+        return output, hidden, attn_weights
+
+    def initHidden(self):
+        result = Variable(torch.zeros(1, 1, self.hidden_size))
+        if USE_CUDA:
+            return result.cuda()
+        else:
+            return result
+
+# no batching
+class edu_AttnDecoderRNN(nn.Module):
+    def __init__(self, hidden_size_enc, hidden_size_dec, output_size, n_layers=1, dropout=0.1, batch_size=64, max_length=MAX_LENGTH):
+        super(AttnDecoderRNN, self).__init__()
+        self.hidden_size = hidden_size_enc
+        self.output_size = output_size
+        self.n_layers = n_layers
+        self.dropout_p = dropout
+        self.max_length = max_length
+
+        self.embedding = nn.Embedding(self.output_size, self.hidden_size)
+        self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
+        self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
+        self.dropout = nn.Dropout(self.dropout_p)
+        self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+        self.out = nn.Linear(self.hidden_size, self.output_size)
+
+    def forward(self, input, hidden, encoder_outputs):
+        embedded = self.embedding(input).view(1, 1, -1)
+        embedded = self.dropout(embedded)
+
+        attn_weights = F.softmax(
+            self.attn(torch.cat((embedded[0], hidden[0]), 1)))
+        attn_applied = torch.bmm(attn_weights.unsqueeze(0),
+                                 encoder_outputs.unsqueeze(0))
 
         output = torch.cat((embedded[0], attn_applied[0]), 1)
         output = self.attn_combine(output).unsqueeze(0)
@@ -131,4 +182,6 @@ class AttnDecoderRNN(nn.Module):
         if USE_CUDA:
             return result.cuda()
         else:
-            return result
+            return result    
+        
+        

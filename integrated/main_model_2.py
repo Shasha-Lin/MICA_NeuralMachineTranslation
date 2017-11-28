@@ -116,7 +116,7 @@ def main():
         attn_decoder1 = attn_decoder1.cuda()
 
     trainIters(use_cuda=use_cuda,
-               # loss_criterion=lcriterion,
+            # loss_criterion=lcriterion,
                in_lang=input_lang, 
                out_lang=output_lang, 
                encoder=encoder1, 
