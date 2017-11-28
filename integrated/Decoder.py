@@ -7,6 +7,7 @@ import torch
 
 # If GPU being used, set TRUE else FALSE:
 USE_CUDA = torch.cuda.is_available()
+MAX_LENGTH = 20
 class Attn(nn.Module):
     def __init__(self, method, hidden_size):
         super(Attn, self).__init__()
@@ -57,13 +58,13 @@ class Attn(nn.Module):
             return energy
 
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size_enc, hidden_size_dec, output_size, n_layers=1, dropout_p=0.1, max_length=MAX_LENGTH):
+    def __init__(self, hidden_size_enc, hidden_size_dec, output_size, n_layers=1, dropout=0.1, max_length=MAX_LENGTH):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size_enc = hidden_size_enc
         self.hidden_size_dec = hidden_size_dec
         self.output_size = output_size
         self.n_layers = n_layers
-        self.dropout_p = dropout_p
+        self.dropout_p = dropout
         self.max_length = max_length
 
         self.embedding = nn.Embedding(self.output_size, self.hidden_size_dec)

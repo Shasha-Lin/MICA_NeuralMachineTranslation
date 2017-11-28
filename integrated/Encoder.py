@@ -1,6 +1,9 @@
 # Code source : https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation-batched.ipynb
-
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
 from data_for_modeling import *
+
 # Enocders and Attention module are coded as described in the paper : https://arxiv.org/pdf/1409.0473.pdf
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):

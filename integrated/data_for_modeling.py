@@ -48,13 +48,34 @@ def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
     return input_lang, output_lang, pairs
 
 
-# Return a list of indexes, one for each word in the sentence, plus EOS
-def indexes_from_sentence(lang, sentence, char_output=False):
-    if not char_output:
-        return [lang.word2index[word] for word in sentence.split(' ')] + [EOS_token]
+
+
+## Pair processing functions (moving from training.py)
+def indexes_from_sentence(lang, sentence, char=False):
+    if char:
+        return [lang.word2index(word) for word in sentence.split(' ')]
     else:
-        return [lang.word2index(word) for word in sentence.split(' ')] + [EOS_token]
-        
+        return [lang.word2index[word] for word in sentence.split(' ')]
+
+    
+def variable_from_sentence(lang, sentence, use_cuda=False, char=False):
+    indexes = indexes_from_sentence(lang, sentence, char)
+    indexes.append(EOS_token)
+    var = Variable(torch.LongTensor(indexes).view(-1, 1))
+    if use_cuda: 
+        var = var.cuda()
+    return var
+
+            
+def variables_from_pair(pair, input_lang, output_lang, char=False, use_cuda=False):
+    input_variable = variable_from_sentence(input_lang, pair[0], use_cuda=use_cuda)
+    target_variable = variable_from_sentence(output_lang, pair[1], char=char, use_cuda=use_cuda)
+    return (input_variable, target_variable)
+
+
+
+
+
 # Pad a with the PAD symbol
 def pad_seq(seq, max_length):
     seq += [PAD_token for i in range(max_length - len(seq))]
@@ -69,7 +90,7 @@ def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, char_outp
     for i in range(batch_size):
         pair = random.choice(pairs)
         input_seqs.append(indexes_from_sentence(input_lang, pair[0]))
-        target_seqs.append(indexes_from_sentence(output_lang, pair[1], char_output=char_output))
+        target_seqs.append(indexes_from_sentence(output_lang, pair[1], char=char_output))
 
     # Zip into pairs, sort by length (descending), unzip
     seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)

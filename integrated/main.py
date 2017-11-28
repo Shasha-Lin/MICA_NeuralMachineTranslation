@@ -79,8 +79,7 @@ def main():
         encoder1 = encoder1.cuda()
         attn_decoder1 = attn_decoder1.cuda()
 
-        trainIters(input_lang, output_lang, encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs,
-                   pairs_eval=pairs_dev, learning_rate=opt.learning_rate, print_every=5000, char=target_char)
+    trainIters(input_lang, output_lang, encoder1, attn_decoder1, n_iters=opt.n_iters, pairs=pairs, pairs_eval=pairs_dev, learning_rate=opt.learning_rate, print_every=5000, char=target_char, opt=opt)
 
     torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
     torch.save(attn_decoder1.state_dict(), "{}/saved_decoder_final.pth".format(opt.out_dir))
