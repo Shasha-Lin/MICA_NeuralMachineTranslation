@@ -42,7 +42,7 @@ def train(use_cuda, input_variable, input_lengths, target_variable, target_lengt
         # Teacher forcing: Feed the target as the next input
         for di in range(max_target_length):
             decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_output, encoder_outputs)
+                decoder_input, decoder_hidden, encoder_outputs)
             loss += criterion(decoder_output, target_variable[di])
             decoder_input = target_variable[di]  # Teacher forcing
 

@@ -101,10 +101,14 @@ def main():
                           opt.n_layers, 
                           dropout=opt.dropout_enc
                          )
-    attn_decoder1 = AttnDecoderRNN(opt.hidden_size, 
-                                   output_lang.n_words,
-                                   opt.n_layers, 
-                                   dropout=opt.dropout_dec
+
+    attn_decoder1 = AttnDecoderRNN(hidden_size_enc=opt.hidden_size, 
+                                   hidden_size_dec=opt.hidden_size,
+                                   output_size=output_lang.n_words,
+                                   n_layers=opt.n_layers, 
+                                   dropout=opt.dropout_dec,
+                                   max_length=opt.MAX_LENGTH_TARGET,
+                                   batch_size=opt.batch_size
                                   )
 
     if use_cuda:

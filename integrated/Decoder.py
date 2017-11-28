@@ -2,6 +2,7 @@
 
 from Encoder import *
 import torch
+import torch.nn.functional as F
 
 # The Attention based decoder is also structured based on this paaper: https://arxiv.org/pdf/1409.0473.pdf
 
@@ -58,7 +59,7 @@ class Attn(nn.Module):
             return energy
 
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size_enc, hidden_size_dec, output_size, n_layers=1, dropout=0.1, max_length=MAX_LENGTH):
+    def __init__(self, hidden_size_enc, hidden_size_dec, output_size, n_layers=1, dropout=0.1, max_length=MAX_LENGTH, batch_size=64):
         super(AttnDecoderRNN, self).__init__()
         self.hidden_size_enc = hidden_size_enc
         self.hidden_size_dec = hidden_size_dec
@@ -66,31 +67,54 @@ class AttnDecoderRNN(nn.Module):
         self.n_layers = n_layers
         self.dropout_p = dropout
         self.max_length = max_length
+        self.batch_size = batch_size 
+        
+        #self.embedding = nn.Embedding(self.output_size, self.hidden_size_dec)
+        self.embedding = nn.Embedding(self.output_size, self.hidden_size_enc)
 
-        self.embedding = nn.Embedding(self.output_size, self.hidden_size_dec)
-        self.attn = nn.Linear(self.hidden_size_dec * 2, self.max_length)
+        self.attn = nn.Linear(self.batch_size* self.hidden_size_dec * 2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size_enc * 2, self.hidden_size_dec)
         self.dropout = nn.Dropout(self.dropout_p)
         self.gru = nn.GRU(self.hidden_size_dec, self.hidden_size_dec)
         self.out = nn.Linear(self.hidden_size_dec, self.output_size)
 
     def forward(self, input_data, hidden, encoder_outputs):
-        embedded = self.embedding(input_data).view(1, 1, -1)
+        print("HERE!!!!!")
+        print(input_data.size())
+        print(self.embedding(input_data).size())
+        embedded = self.embedding(input_data).view(1, input_data.data.shape[0], -1) # S=1 x B x N
+
+        print("HERE!!!!!")
         embedded = self.dropout(embedded)
+        print("HERE!!!!!")
         print("calc attn_weights")
         print(embedded[0].size())
         print(hidden[0].size())
         print(torch.cat((embedded[0], 
                                  hidden[0])).size())
-        print(self.attn())
+        # print(self.attn())
+        # dimension issues here 
+        print(embedded[0].size())
+        print(hidden[0].view(self.batch_size,-1,1).size())
+        print(torch.cat((embedded[0], 
+                                 hidden[0].view(self.batch_size,-1,1)), 1).size())
+        print("here just to make sure")
+        print(self.hidden_size_enc *2, self.max_length)
+
+        print(self.attn(torch.cat((embedded[0], 
+                                 hidden[0].view(self.batch_size,-1,1)), 1).view(1,-1)).size())
+        print("here just to make sure 2")
+
         attn_weights = F.softmax(
             self.attn(torch.cat((embedded[0], 
-                                 hidden[0].view(1,-1,1)), 1)))
+                                 hidden[0].view(self.batch_size,-1,1)), 1).view(1,-1)))
         print("calc attn_applied")
         print(attn_weights.unsqueeze(0).size())
         print(encoder_outputs.unsqueeze(0).size())
+        print(encoder_outputs.size())
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
-                                 encoder_outputs.unsqueeze(0))
+                                 encoder_outputs)
+                                 #encoder_outputs.unsqueeze(0))
 
         output = torch.cat((embedded[0], attn_applied[0]), 1)
         output = self.attn_combine(output).unsqueeze(0)
