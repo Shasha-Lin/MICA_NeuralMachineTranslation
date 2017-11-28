@@ -26,9 +26,11 @@ def sequence_mask(sequence_length, max_len=None):
     return seq_range_expand < seq_length_expand
 
 
-def masked_cross_entropy(logits, target, length):
-    length = Variable(torch.LongTensor(length)).cuda()
-
+def masked_cross_entropy(logits, target, length, use_cuda=False):
+    if use_cuda:
+        length = Variable(torch.LongTensor(length)).cuda()
+    else:
+        length = Variable(torch.LongTensor(length))
     """
     Args:
         logits: A Variable containing a FloatTensor of size
