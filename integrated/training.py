@@ -11,6 +11,8 @@ import math
 # from Attn_Based_EN_DE import *
 from masked_cross_entropy import masked_cross_entropy
 from data_for_modeling import random_batch, EOS_token, SOS_token
+from evaluation_and_attention_visualization import evaluate_dev, evaluateRandomly
+from nltk.translate import bleu_score
 
 def asMinutes(s):
     m = math.floor(s / 60)
@@ -129,11 +131,11 @@ def trainIters(use_cuda, encoder, decoder, n_iters, pairs, in_lang, out_lang, pa
         if iter % eval_every == 0:
             encoder.train(False)
             decoder.train(True)
-            prediction = evaluate_dev(input_lang, output_lang, encoder, decoder, pairs_eval)
+            prediction = evaluate_dev(in_lang, out_lang, encoder, decoder, pairs_eval, max_length, kmax=opt.kmax, char=char)
             target_eval = [x[1] for x in pairs_eval]
             bleu_corpus = bleu_score.corpus_bleu(target_eval, prediction)
-            experiment.log_metric("BLEU score", bleu_corpus)
-            evaluateRandomly(input_lang, output_lang, encoder1, attn_decoder1, max_length=max_length, n=5)
+            # experiment.log_metric("BLEU score", bleu_corpus)
+            evaluateRandomly(in_lang, out_lang, encoder, decoder, pairs=pairs_eval, max_length=max_length, n=5,kmax=opt.kmax, char=char)
             encoder.train()
             decoder.train()
 

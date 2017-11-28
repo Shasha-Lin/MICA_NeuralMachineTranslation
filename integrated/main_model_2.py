@@ -44,6 +44,8 @@ def parse_args():
     parser.add_argument('--out_dir', type=str, default=".", help="Directory to save the models state dict")
     parser.add_argument('--save_every', type=int, default=5000, help='Checkpoint model after number of iters')
     parser.add_argument('--print_every', type=int, default=5000, help='Print training loss after number of iters')
+    parser.add_argument('--eval_every', type=int, default=5000, help='Evaluate examples after number of iters')
+
     # translation params
     parser.add_argument('--enc_checkpoint', type=str, default=".", help="checkpoint to load encoder from (Default: None)")
     parser.add_argument('--dec_checkpoint', type=str, default=".", help="checkpoint to load decoder from (Default: None)")
@@ -124,11 +126,12 @@ def main():
                n_iters=opt.n_iters, 
                pairs=pairs,
                # pairs_eval=pairs_dev, 
-               pairs_eval=pairs, # ***** fix this 
+               pairs_eval=pairs[:10], # ***** fix this 
                learning_rate=opt.learning_rate, 
                print_every=opt.print_every, 
                char=target_char,
-               opt=opt
+               opt=opt,
+               eval_every=opt.eval_every
               )
 
     torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
