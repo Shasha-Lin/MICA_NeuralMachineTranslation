@@ -32,7 +32,8 @@ parser.add_argument('--use_cuda', action='store_true', help='IF USE CUDA (Defaul
 parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='Teacher forcing ratio for encoder')
 parser.add_argument('--hidden_size', type=int, default=256, help='Size of hidden layer')
 parser.add_argument('--n_iters', type=int, default=3000, help='Number of single iterations through the data')
-parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate (for both, encoder and decoder)')
+parser.add_argument('--learning_rate_decoder', type=float, default=0.001, help='Learning rate for decoder')
+parser.add_argument('--learning_rate_encoder', type=float, default=0.001, help='Learning rate for encoder')
 parser.add_argument('--n_layers', type=int, default=1, help='Number of layers (for both, encoder and decoder)')
 parser.add_argument('--dropout_dec_p', type=float, default=0.1, help='Dropout (%) in the decoder')
 parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
@@ -486,7 +487,7 @@ def train(input_variable, target_variable, encoder, decoder,
     return loss.data[0] / target_length
     
 def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_eval, loss_criterion,
-               learning_rate=opt.learning_rate, 
+               learning_rate_encoder=opt.learning_rate_encoder, learning_rate_decoder=opt.learning_rate_decoder, 
                print_every=5000, save_every=5000, eval_every=10000):
     
     start = time.time()
@@ -494,11 +495,11 @@ def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_
     
     # Optimizers = ADAM in Chung, Cho and Bengio 2016
     if opt.optimizer == "Adam":
-        encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-        decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+        encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate_encoder)
+        decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate_decoder)
     elif opt.optimizer == "SGD":
-        encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-        decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)  
+        encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate_encoder)
+        decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate_decoder)  
     else: 
         raise ValueError('Optimizer options not found: Select SGD or Adam') 
     
@@ -524,8 +525,9 @@ def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_
             experiment.log_metric("Train loss", print_loss_avg)
         
         if iter % save_every == 0: 
-            torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, iter))
-            torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, iter))
+            #torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, iter))
+            #torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, iter))
+            print("Remember to uncomment save")
             
         if iter % eval_every == 0: 
             prediction = evaluate_dev(input_lang, output_lang, encoder, decoder, pairs_eval)
@@ -559,7 +561,7 @@ else:
     raise ValueError("criterion nof found")
 
 trainIters(input_lang, output_lang, encoder1, attn_decoder1, n_iters=opt.n_iters, 
-           pairs=pairs, pairs_eval=pairs_dev, loss_criterion=lcriterion, learning_rate=opt.learning_rate,
+           pairs=pairs, pairs_eval=pairs_dev, loss_criterion=lcriterion,
            print_every=5000, save_every=100000, eval_every=100000)
 
 torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
