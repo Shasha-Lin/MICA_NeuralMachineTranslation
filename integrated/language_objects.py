@@ -66,8 +66,7 @@ class Tokenizer(Lang):
                  vocab_threshold=2):
         self.max_length = max_length
         self.vocab_threshold = vocab_threshold
-        #self.special_tokens = [PAD_TOKEN, UNK_TOKEN, BOS_TOKEN, EOS_TOKEN]
-        self.special_tokens = ['<PAD>', '<BOS>', '<EOS>', '<UNK>']
+        self.special_tokens = [PAD_TOKEN, UNK_TOKEN, BOS_TOKEN, EOS_TOKEN]
         if additional_tokens is not None:
             self.special_tokens += additional_tokens
         self.__word2idx = {}
@@ -75,8 +74,6 @@ class Tokenizer(Lang):
             self.load_vocab(vocab_file)
         self.n_words = 3
         self.trimmed = False
-        self.index2word = {0: "PAD_TOKEN", 1: "SOS_TOKEN", 2: "EOS_TOKEN"}
-
 
     @property
     def vocab_size(self):
@@ -91,13 +88,9 @@ class Tokenizer(Lang):
     def update_word2idx(self):
         self.__word2idx = {
             word[0]: idx + len(self.special_tokens) for idx, word in enumerate(self.vocab)}
-        self.index2word = {
-            idx + len(self.special_tokens): word[0] for idx, word in enumerate(self.vocab)}
         for i, tok in enumerate(self.special_tokens):
             self.__word2idx[tok] = i
-            self.index2word[i]=tok
         self.n_words=self.vocab_size
-        print(self.index2word)
 
     def word2idx(self, word):
         return self.__word2idx.get(word, UNK_TOKEN)

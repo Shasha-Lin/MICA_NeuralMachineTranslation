@@ -141,9 +141,7 @@ def get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidd
     # Get the decoded words:
     decoded_words_indices = seq.split("-")
     if char:
-        # decoded_words = [str(out_lang.idx2word(int(i))) for i in decoded_words_indices]
-        decoded_words = [out_lang.index2word[int(i)] for i in decoded_words_indices]
-
+        decoded_words = [str(out_lang.idx2word(int(i))) for i in decoded_words_indices]
     else:
         decoded_words = [out_lang.index2word[int(i)] for i in decoded_words_indices]
     if int(decoded_words_indices[-1]) != EOS_token:
