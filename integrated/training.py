@@ -125,12 +125,12 @@ def trainIters(use_cuda, encoder, decoder, n_iters, pairs, in_lang, out_lang, pa
             # experiment.log_metric("Train loss", print_loss_avg)
 
         if iter % save_every == 0:
-            torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(out_dir, iter))
-            torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(out_dir, iter))
+            torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, iter))
+            torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, iter))
 
         if iter % eval_every == 0:
-            encoder.train(False)
-            decoder.train(True)
+            encoder.eval()
+            decoder.eval()
             prediction = evaluate_dev(in_lang, out_lang, encoder, decoder, pairs_eval, max_length, kmax=opt.kmax, char=char)
             target_eval = [x[1] for x in pairs_eval]
             bleu_corpus = bleu_score.corpus_bleu(target_eval, prediction)
