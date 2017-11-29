@@ -539,7 +539,7 @@ def trainIters(input_lang, output_lang, encoder, decoder, num_epochs, pairs, pai
         experiment.log_metric("BLEU score", bleu_corpus)
         print("NLTK's Blue score: {} at epoch {}".format(round(bleu_corpus, 2), epoch))
         evaluateRandomly(input_lang, output_lang, encoder1, attn_decoder1, 
-                         max_length=opt.MAX_LENGTH_TARGET, n=5)
+                         max_length=opt.MAX_LENGTH_TARGET, n=5) # This are from train
             
         
 #########
