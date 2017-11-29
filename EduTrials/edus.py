@@ -31,7 +31,7 @@ parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
 parser.add_argument('--use_cuda', action='store_true', help='IF USE CUDA (Default == False)')
 parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='Teacher forcing ratio for encoder')
 parser.add_argument('--hidden_size', type=int, default=256, help='Size of hidden layer')
-parser.add_argument('--n_iters', type=int, default=3000, help='Number of single iterations through the data')
+parser.add_argument('--num_epochs', type=int, default=3000, help='Number of epochs')
 parser.add_argument('--learning_rate_decoder', type=float, default=0.001, help='Learning rate for decoder')
 parser.add_argument('--learning_rate_encoder', type=float, default=0.001, help='Learning rate for encoder')
 parser.add_argument('--n_layers', type=int, default=1, help='Number of layers (for both, encoder and decoder)')
@@ -486,12 +486,11 @@ def train(input_variable, target_variable, encoder, decoder,
 
     return loss.data[0] / target_length
     
-def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_eval, loss_criterion,
+def trainIters(input_lang, output_lang, encoder, decoder, num_epochs, pairs, pairs_eval, loss_criterion,
                learning_rate_encoder=opt.learning_rate_encoder, learning_rate_decoder=opt.learning_rate_decoder, 
-               print_every=5000, save_every=5000, eval_every=10000):
+               print_every=500):
     
     start = time.time()
-    print_loss_total = 0  # Reset every print_every
     
     # Optimizers = ADAM in Chung, Cho and Bengio 2016
     if opt.optimizer == "Adam":
@@ -502,40 +501,45 @@ def trainIters(input_lang, output_lang, encoder, decoder, n_iters, pairs, pairs_
         decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate_decoder)  
     else: 
         raise ValueError('Optimizer options not found: Select SGD or Adam') 
-    
-    training_pairs = [variables_from_pair(random.choice(pairs))
-                      for i in range(n_iters)]
                       
     criterion = loss_criterion
-
-    for iter in range(1, n_iters + 1):
-        training_pair = training_pairs[iter - 1]
-        input_variable = training_pair[0]
-        target_variable = training_pair[1]
- 
-        loss = train(input_variable, target_variable, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer, criterion)
-        print_loss_total += loss
-
-        if iter % print_every == 0:
-            print_loss_avg = print_loss_total / print_every
-            print_loss_total = 0
-            print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters),
-                                         iter, iter / n_iters * 100, print_loss_avg))
-            experiment.log_metric("Train loss", print_loss_avg)
-        
-        if iter % save_every == 0: 
-            #torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, iter))
-            #torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, iter))
-            print("Remember to uncomment save")
+    
+    iter_tot = 1
+    n_iters = num_epochs * len(pairs)
+    loss_avg = 0
+    print_loss_avg = 0    
+    
+    for epoch in range(1, num_epochs + 1):
+        for z in range(0, len(pairs)):
             
-        if iter % eval_every == 0: 
-            prediction = evaluate_dev(input_lang, output_lang, encoder, decoder, pairs_eval)
-            target_eval = [x[1] for x in pairs_eval]
-            bleu_corpus = bleu_score.corpus_bleu(target_eval, prediction)
-            experiment.log_metric("BLEU score", bleu_corpus)
-            print("NLTK's Blue score: {} at iter {}".format(round(bleu_corpus, 2), iter))
-            evaluateRandomly(input_lang, output_lang, encoder1, attn_decoder1, max_length=opt.MAX_LENGTH_TARGET, n=5)
+            training_pair = variables_from_pair(pairs[z])
+            input_variable = training_pair[0]
+            target_variable = training_pair[1]
+ 
+            loss = train(input_variable, target_variable, encoder,
+                         decoder, encoder_optimizer, decoder_optimizer, criterion)
+            loss_avg += loss
+            print_loss_avg += 1
+            if iter_tot % print_every == 0:
+                print_loss_avg = loss_avg / print_loss_avg
+                print('%s (%d %d%%) %.4f' % (timeSince(start, iter_tot / n_iters),
+                                             iter_tot, iter_tot / n_iters * 100, print_loss_avg))
+                experiment.log_metric("Train loss", loss)
+                loss_avg = 0
+                print_loss_avg = 0
+                
+            iter_tot += 1
+        
+        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
+        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))
+        
+        prediction = evaluate_dev(input_lang, output_lang, encoder, decoder, pairs_eval)
+        target_eval = [x[1] for x in pairs_eval]
+        bleu_corpus = bleu_score.corpus_bleu(target_eval, prediction)
+        experiment.log_metric("BLEU score", bleu_corpus)
+        print("NLTK's Blue score: {} at epoch {}".format(round(bleu_corpus, 2), epoch))
+        evaluateRandomly(input_lang, output_lang, encoder1, attn_decoder1, 
+                         max_length=opt.MAX_LENGTH_TARGET, n=5)
             
         
 #########
@@ -560,9 +564,6 @@ elif opt.criterion == "CrossEntropyLoss":
 else:
     raise ValueError("criterion nof found")
 
-trainIters(input_lang, output_lang, encoder1, attn_decoder1, n_iters=opt.n_iters, 
+trainIters(input_lang, output_lang, encoder1, attn_decoder1, num_epochs=opt.num_epochs, 
            pairs=pairs, pairs_eval=pairs_dev, loss_criterion=lcriterion,
-           print_every=5000, save_every=100000, eval_every=100000)
-
-torch.save(encoder1.state_dict(), "{}/saved_encoder_final.pth".format(opt.out_dir))
-torch.save(attn_decoder1.state_dict(), "{}/saved_decoder_final.pth".format(opt.out_dir))         
+           print_every=500)        
