@@ -57,10 +57,11 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=32, help="Size of a batch")
     parser.add_argument('--min_count_trim_output', type=int, default=5, help="trim infrequent output words")
     parser.add_argument('--min_count_trim_input', type=int, default=5, help="trim infrequent output words")
-    parser.add_argument('--save_every', type=int, default=500, help='Checkpoint model after number of iters')
+    parser.add_argument('--save_every', type=int, default=50, help='Checkpoint model after number of iters')
     parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
     parser.add_argument('--eval_every', type=int, default=5, help='Evaluate translation on dev pairs after number of iters')
     parser.add_argument('--plot_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
 
     opt = parser.parse_args()
     print(opt)
@@ -1042,8 +1043,8 @@ while epoch < opt.n_epochs:
         evaluate_randomly()
 
     if epoch % save_every == 0:
-        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir))
-        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir))
+        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
+        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))
 
     if epoch % plot_every == 0:
         plot_loss_avg = plot_loss_total / plot_every
