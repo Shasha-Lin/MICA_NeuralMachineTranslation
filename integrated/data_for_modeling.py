@@ -14,12 +14,12 @@ def filterPairs(pairs, min_length_input, min_length_target, max_length_input, ma
                                                  max_length_input, max_length_target)]
 
 def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
-                 min_length_target, max_length_target, do_filter=True, normalize=False,
+                 min_length_target, max_length_target, set_type='train', do_filter=True, normalize=False,
                  reverse=False, path='.', term='txt', char_output=False):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
     input_lang, output_lang, pairs = read_langs(lang1_name, 
-                                                lang2_name, 
+                                                lang2_name, set_type=set_type,
                                                 reverse=reverse,
                                                 normalize=normalize,
                                                 path=path, 
@@ -47,34 +47,24 @@ def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
     print('Indexed %d words in input language, %d words in output' % (input_lang.n_words, output_lang.n_words))
     return input_lang, output_lang, pairs
 
+def indexes_from_sentence(lang, sentence):
+    return [lang.word2index(word) for word in sentence.split(' ')]
 
 
-
-## Pair processing functions (moving from training.py)
-def indexes_from_sentence(lang, sentence, char=False):
-    if char:
-        return [lang.word2index(word) for word in sentence.split(' ')]
-    else:
-        return [lang.word2index[word] for word in sentence.split(' ')]
-
-    
-def variable_from_sentence(lang, sentence, use_cuda=False, char=False):
-    indexes = indexes_from_sentence(lang, sentence, char)
+def variable_from_sentence(use_cuda, lang, sentence):
+    indexes = indexes_from_sentence(lang, sentence)
     indexes.append(EOS_token)
+    input_lengths = [len(indexes)]
     var = Variable(torch.LongTensor(indexes).view(-1, 1))
-    if use_cuda: 
+    if use_cuda:
         var = var.cuda()
-    return var
+    return var, input_lengths
 
             
 def variables_from_pair(pair, input_lang, output_lang, char=False, use_cuda=False):
     input_variable = variable_from_sentence(input_lang, pair[0], use_cuda=use_cuda)
     target_variable = variable_from_sentence(output_lang, pair[1], char=char, use_cuda=use_cuda)
     return (input_variable, target_variable)
-
-
-
-
 
 # Pad a with the PAD symbol
 def pad_seq(seq, max_length):
@@ -90,21 +80,15 @@ def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, max_lengt
     for i in range(batch_size):
         pair = random.choice(pairs)
         input_seqs.append(indexes_from_sentence(input_lang, pair[0]))
-        target_seqs.append(indexes_from_sentence(output_lang, pair[1], char=char_output))
+        target_seqs.append(indexes_from_sentence(output_lang, pair[1]))
 
     # Zip into pairs, sort by length (descending), unzip
     seq_pairs = sorted(zip(input_seqs, target_seqs), key=lambda p: len(p[0]), reverse=True)
     input_seqs, target_seqs = zip(*seq_pairs)
-    
-    # For input and target sequences, get array of lengths and pad with 0s to max length
-    # input_lengths = [len(s) for s in input_seqs]
-    # input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
-    input_lengths = [max_length_input for s in input_seqs]
-    input_padded = [pad_seq(s, max_length_input) for s in input_seqs]
-    #target_lengths = [len(s) for s in target_seqs]
-    # target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
-    target_lengths = [max_length_output for s in target_seqs]
-    target_padded = [pad_seq(s, max_length_output) for s in target_seqs]
+    input_lengths = [len(s) for s in input_seqs]
+    input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
+    target_lengths = [len(s) for s in target_seqs]
+    target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
 
     # Turn padded arrays into (batch_size x max_len) tensors, transpose into (max_len x batch_size)
     input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)

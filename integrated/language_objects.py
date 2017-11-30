@@ -16,7 +16,7 @@ class Lang(object):
     def __init__(self, name):
         self.name = name
         self.trimmed = False
-        self.word2index = {}
+        self.__word2idx = {}
         self.word2count = {}
         self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
         self.n_words = 3 # Count default tokens
@@ -26,8 +26,8 @@ class Lang(object):
             self.index_word(word)
 
     def index_word(self, word):
-        if word not in self.word2index:
-            self.word2index[word] = self.n_words
+        if word not in self.__word2idx:
+            self.__word2idx[word] = self.n_words
             self.word2count[word] = 1
             self.index2word[self.n_words] = word
             self.n_words += 1
@@ -46,17 +46,20 @@ class Lang(object):
                 keep_words.append(k)
 
         print('keep_words %s / %s = %.4f' % (
-            len(keep_words), len(self.word2index), len(keep_words) / len(self.word2index)
+            len(keep_words), len(self.__word2idx), len(keep_words) / len(self.__word2idx)
         ))
 
         # Reinitialize dictionaries
-        self.word2index = {}
+        self.__word2idx = {}
         self.word2count = {}
         self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
         self.n_words = 3 # Count default tokens
 
         for word in keep_words:
             self.index_word(word)
+
+    def word2index(self, word):
+        return self.__word2idx.get(word, UNK_TOKEN)
 
 
 class Tokenizer(Lang):
@@ -98,9 +101,6 @@ class Tokenizer(Lang):
             self.index2word[i]=tok
         self.n_words=self.vocab_size
         print(self.index2word)
-
-    def word2idx(self, word):
-        return self.__word2idx.get(word, UNK_TOKEN)
     
     def word2index(self, word): 
         return self.__word2idx.get(word, UNK_TOKEN)

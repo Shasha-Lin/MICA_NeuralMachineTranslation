@@ -3,10 +3,10 @@
 import time
 import random
 import torch
-import torch.nn as nn
 from torch.autograd import Variable
 from torch import optim
 import math
+from data_for_modeling import *
 
 # from Attn_Based_EN_DE import *
 from masked_cross_entropy import masked_cross_entropy
@@ -28,34 +28,26 @@ def timeSince(since, percent):
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
-def train(use_cuda, input_variable, input_lengths, target_variable, target_lengths, encoder, decoder, encoder_optimizer, decoder_optimizer, max_length, batch_size, teacher_forcing_ratio=.5, clip=1):
+def train(use_cuda, input_variable, input_lengths, target_variable, target_lengths, encoder, decoder, encoder_optimizer, decoder_optimizer,
+          max_length, batch_size, teacher_forcing_ratio=.5, clip=1):
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
     loss = 0
     # Run words through encoder
     encoder_outputs, encoder_hidden = encoder(input_variable, input_lengths, None)
-    #print("ENCODER OUTPUTS SHAPE: ", encoder_outputs.size())
-    # Prepare input and output variables
     decoder_input = Variable(torch.LongTensor([SOS_token] * batch_size))
     decoder_hidden = encoder_hidden[:decoder.n_layers]  # Use last (forward) hidden state from encoder
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, batch_size, decoder.output_size))
-
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-    # for debugging without teacher forcing
-    use_teacher_forcing = False
     if use_teacher_forcing:
         # Teacher forcing: Feed the target as the next input
         for di in range(max_target_length):
             decoder_output, decoder_hidden, decoder_attention = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
-            loss += masked_cross_entropy(decoder_output, target_variable[di])
-            decoder_input = target_variable[di]  # Teacher forcing
-
-            decoder_output, decoder_hidden, decoder_attn = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
-            all_decoder_outputs[t] = decoder_output
-            decoder_input = target_variable[t]  # Next input is current target
+            all_decoder_outputs[di] = decoder_output
+            decoder_input = target_variable[di]
+            # Next input is current target
     else:
         # Without teacher forcing: use its own predictions as the next input
         for di in range(max_target_length):
@@ -64,11 +56,10 @@ def train(use_cuda, input_variable, input_lengths, target_variable, target_lengt
             topv, topi = decoder_output.data.topk(1)
             ni = topi[0][0]
 
-            decoder_input = Variable(torch.LongTensor([[ni]]))
+            decoder_input = Variable(torch.LongTensor([ni]*batch_size))
             decoder_input = decoder_input.cuda() if use_cuda else decoder_input
             # record outputs for backprop
             all_decoder_outputs[di] = decoder_output
-
             if ni == EOS_token:
                 break
                 # Loss calculation and backpropagation
@@ -79,7 +70,7 @@ def train(use_cuda, input_variable, input_lengths, target_variable, target_lengt
     
     loss = masked_cross_entropy(all_decoder_outputs.transpose(0, 1).contiguous(),  # -> batch x seq
         target_variable.transpose(0, 1).contiguous(),  # -> batch x seq
-        target_lengths)
+        target_lengths, use_cuda=use_cuda)
     
     
     loss.backward()
@@ -95,7 +86,8 @@ def train(use_cuda, input_variable, input_lengths, target_variable, target_lengt
 
 
 # shasha's batching
-def trainIters(use_cuda, encoder, decoder, n_iters, pairs, in_lang, out_lang, pairs_eval, opt=None, outdir='.', learning_rate=0.01, print_every=100, save_every=5000, eval_every=1000, char=False):
+def trainIters(use_cuda, experiment, encoder, decoder, n_iters, pairs, in_lang, out_lang, pairs_eval, opt=None,
+               outdir='.', learning_rate=0.01, print_every=100, save_every=500, eval_every=500, char=False):
     # defining some variables from opt object
     max_length =opt.MAX_LENGTH_TARGET
     teacher_forcing_ratio = opt.teacher_forcing_ratio
@@ -141,25 +133,4 @@ def trainIters(use_cuda, encoder, decoder, n_iters, pairs, in_lang, out_lang, pa
 
 
 
-
-def indexes_from_sentence(lang, sentence, char=False):
-    if char:
-        return [lang.word2index(word) for word in sentence.split(' ')]
-    else:
-        return [lang.word2index[word] for word in sentence.split(' ')]
-
-    
-def variable_from_sentence(lang, sentence, use_cuda=False, char=False):
-    indexes = indexes_from_sentence(lang, sentence, char)
-    indexes.append(EOS_token)
-    var = Variable(torch.LongTensor(indexes).view(-1, 1))
-    if use_cuda: 
-        var = var.cuda()
-    return var
-
-            
-def variables_from_pair(pair, input_lang, output_lang, char=False, use_cuda=False):
-    input_variable = variable_from_sentence(input_lang, pair[0], use_cuda=use_cuda)
-    target_variable = variable_from_sentence(output_lang, pair[1], char=char, use_cuda=use_cuda)
-    return (input_variable, target_variable)
 
