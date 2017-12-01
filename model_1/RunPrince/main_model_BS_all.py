@@ -1082,7 +1082,6 @@ while epoch < opt.n_epochs:
     dca += dc
 
     if epoch % print_every == 0:
-        print("printing loss")
         print_loss_avg = print_loss_total / print_every
         experiment.log_metric("Train loss", print_loss_avg)
         print_loss_total = 0
