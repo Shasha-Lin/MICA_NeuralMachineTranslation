@@ -51,6 +51,7 @@ def parse_args():
     parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
     parser.add_argument('--main_data_dir', type=str, default= "/scratch/eff254/NLP/Data/Model_ready", help='Directory where data is saved (in folders tain/dev/test)')
     parser.add_argument('--out_dir', type=str, default="", help="Directory to save the models state dict (No default)")
+    parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation/", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
     parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
     parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
     parser.add_argument('--clip', type=int, default=1, help="Clipping the gradients")
@@ -822,6 +823,50 @@ def evaluate_and_show_attention(input_sentence, target_sentence=None):
     print('<', output_sentence)
     #print("BLUE SCORE IS:", bleu_score)
 
+def eval_single(string):
+    
+    words, tensor = evaluate(string)
+    words = ' '.join(words)
+    words = re.sub('EOS', '', words)
+    return(words)
+
+def evaluate_list_pairs(list_strings):
+    
+    output = [eval_single(x[0]) for x in list_strings]
+    
+    return output
+
+def export_as_list(original, translations): 
+    
+    with open(opt.eval_dir + '/original.txt', 'w') as original_file:
+        for sentence in original:
+            original_file.write(sentence + "\n")
+    
+    
+    with open(opt.eval_dir + '/translations.txt', 'w') as translations_file:
+        for sentence in translations:
+            translations_file.write(sentence + "\n")
+        
+def run_perl(): 
+    
+    ''' Assumes the multi-bleu.perl is in opt.eval_dir
+        Assumes you exported files with names in export_as_list()'''
+    
+    cmd = "%s %s < %s" % (opt.eval_dir + "./multi-bleu.perl", opt.eval_dir + 'original.txt', opt.eval_dir + 'translations.txt')
+    bleu_output = subprocess.check_output(cmd, shell=True)
+    m = re.search("BLEU = (.+?),", str(bleu_output))
+    bleu_score = float(m.group(1))
+    
+    return bleu_score
+    
+def multi_blue_dev(dev_pairs):
+    
+    prediction = evaluate_list_pairs(dev_pairs)
+    target_eval = [x[1] for x in dev_pairs]    
+    export_as_list(target_eval, prediction)
+    blue = run_perl()
+    return blue
+
 ###############################
 # 5. Training & training loop #
 ###############################
@@ -914,11 +959,25 @@ input_lang, output_lang, pairs = prepare_data(opt.lang1,
                                               char_output=target_char
                                              )
 
+input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1,
+                                              opt.lang2,
+                                              do_filter=True,
+                                              min_length_input=opt.MIN_LENGTH, 
+                                              max_length_input=opt.MAX_LENGTH,
+                                              min_length_target=opt.MIN_LENGTH_TARGET,
+                                              max_length_target=opt.MAX_LENGTH_TARGET, 
+                                              normalize=False, 
+                                              reverse=False, 
+                                              path=opt.main_data_dir, 
+                                              term=opt.model_type,
+                                              char_output=target_char,
+                                              set_type="valid")
+
+
 # TRIMMING DATA:
 
 input_lang.trim(min_count=opt.min_count_trim_input)
 output_lang.trim(min_count=opt.min_count_trim_output)
-
 
 
 def trim_pairs(pairs,input_lang,output_lang, char=False):
@@ -1041,6 +1100,9 @@ while epoch < opt.n_epochs:
 
     if epoch % evaluate_every == 0:
         evaluate_randomly()
+        blue_score = multi_blue_dev(pairs_dev)
+        print("Bleu score at {} iteration = {}".format(epoch, blue_score))
+        experiment.log_metric("Bleu score", print_loss_avg)
 
     if epoch % save_every == 0:
         torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
