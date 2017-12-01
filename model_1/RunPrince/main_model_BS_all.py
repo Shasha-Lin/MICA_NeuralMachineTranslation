@@ -35,16 +35,16 @@ import os
 ######## File params ########
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--MIN_LENGTH', type=int, default=5, help='Min Length of sequence (Input side)')
+    parser.add_argument('--MIN_LENGTH', type=int, default=2, help='Min Length of sequence (Input side)')
     parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence (Input side)')
-    parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=5, help='Min Length of sequence (Output side)')
-    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=200, help='Max Length of sequence (Output side)')
+    parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=2, help='Min Length of sequence (Output side)')
+    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=40, help='Max Length of sequence (Output side)')
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
     parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
     parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='Teacher forcing ratio for encoder')
     parser.add_argument('--hidden_size', type=int, default=1024, help='Size of hidden layer')
-    parser.add_argument('--n_epochs', type=int, default=50000, help='Number of single iterations through the data')
+    parser.add_argument('--n_epochs', type=int, default=20, help='Number of single iterations through the data')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate (for both, encoder and decoder)')
     parser.add_argument('--n_layers', type=int, default=2, help='Number of layers (for both, encoder and decoder)')
     parser.add_argument('--dropout', type=float, default=0.1, help='Dropout (%) in the decoder')
@@ -57,12 +57,12 @@ def parse_args():
     parser.add_argument('--clip', type=int, default=1, help="Clipping the gradients")
     parser.add_argument('--batch_size', type=int, default=32, help="Size of a batch")
     parser.add_argument('--min_count_trim_output', type=int, default=5, help="trim infrequent output words")
-    parser.add_argument('--min_count_trim_input', type=int, default=5, help="trim infrequent output words")
-    parser.add_argument('--save_every', type=int, default=50, help='Checkpoint model after number of iters')
-    parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
-    parser.add_argument('--eval_every', type=int, default=5, help='Evaluate translation on dev pairs after number of iters')
-    parser.add_argument('--plot_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
-    parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
+    parser.add_argument('--min_count_trim_input', type=int, default=5, help="trim infrequent input words")
+    parser.add_argument('--save_every', type=int, default=5, help='Checkpoint model after number of iters')
+    parser.add_argument('--print_every', type=int, default=1, help='Print training loss after number of iters')
+    parser.add_argument('--eval_every', type=int, default=1, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--plot_every', type=int, default=1, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--experiment', type=str, default="Shasha", help='experiment name')
 
     opt = parser.parse_args()
     print(opt)
@@ -81,6 +81,7 @@ def parse_args():
 
 
 opt, target_char , experiment = parse_args()
+
 
 
 
@@ -124,8 +125,6 @@ def masked_cross_entropy(logits, target, length):
 ####################################
 # 2. Languages classes and imports #
 ####################################
-
-
 PAD_token = 0
 SOS_token = 1
 EOS_token = 2
@@ -192,14 +191,15 @@ def normalize_string(s):
 """
 
 class Lang(object):
+    
     def __init__(self, name):
         self.name = name
         self.trimmed = False
         self.__word2idx = {}
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:'<UNK>'}        
+        self.n_words = 4 # Count default tokens       
         self.word2count = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
-        self.n_words = 3 # Count default tokens
-
+        
     def index_words(self, sentence):
         for word in sentence.split(' '):
             self.index_word(word)
@@ -230,8 +230,7 @@ class Lang(object):
 
         # Reinitialize dictionaries
         self.__word2idx = {}
-        self.word2count = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:'<UNK>'}
         self.n_words = 3 # Count default tokens
 
         for word in keep_words:
@@ -418,7 +417,6 @@ def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
     return input_lang, output_lang, pairs
 
 
-
 """
 def filter_pairs(pairs, MIN_LENGTH, MAX_LENGTH):
     filtered_pairs = []
@@ -464,7 +462,7 @@ def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
 # MD edit
 def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
                  min_length_target, max_length_target, set_type='train', do_filter=True, normalize=False,
-                 reverse=False, path='.', term='txt', char_output=False):
+                 reverse=False, path='.', term=opt.model_type, char_output=False):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
     input_lang, output_lang, pairs = read_langs(lang1_name, 
@@ -519,7 +517,7 @@ def indexes_from_sentence(lang, sentence):
 
 # Pad a with the PAD symbol
 def pad_seq(seq, max_length):
-    seq += [PAD_token for i in range(max_length - len(seq))]
+    seq += [PAD_TOKEN for i in range(max_length - len(seq))]
     return seq
 
 
@@ -977,37 +975,28 @@ input_lang.trim(min_count=opt.min_count_trim_input)
 output_lang.trim(min_count=opt.min_count_trim_output)
 
 
-def trim_pairs(pairs,input_lang,output_lang, char=False):
-    keep_pairs = []
-    for pair in pairs:
-        input_sentence = pair[0]
-        output_sentence = pair[1].lower()
-        keep_input = True
-        keep_output = True
+def trim_pairs(pairs, char=False):
+    for i, pair in enumerate(pairs):
+        pairs[i][1] = pairs[i][1].lower()
 
-        for word in input_sentence.split(' '):
+        for word in pair[0].split(' '):
             if word not in input_lang.word2count:
-                keep_input = False
-                break
+                pairs[i][0] = re.sub(word, '<UNK>', pair[0])
+                
         if not char:
-            for word in output_sentence.split(' '):
+            for word in pair[1].split(' '):
                 if word not in output_lang.word2count:
-                    keep_output = False
-                    break            
-        else:
-            for word in list(output_sentence):
-                if word not in dict(output_lang.vocab) and word != " ":
-                    keep_output = False
+                    pairs[i][1] = re.sub(word, '<UNK>', pair[1]) 
                     break
+        else:
+            for word in list(pair[1]):
+                if word not in dict(output_lang.vocab) and word != " ":
+                    pairs[i][1] = re.sub(word, '<UNK>', pair[1])   
 
+    print("Total number of sentence pairs: %d." %len(pairs))
+    return pairs
 
-        # Remove if pair doesn't match input and output conditions
-        if keep_input and keep_output:
-            keep_pairs.append(pair)
-    print("Trimmed from %d pairs to %d, %.4f of total" % (len(pairs), len(keep_pairs), len(keep_pairs) / len(pairs)))
-    return keep_pairs
-
-pairs = trim_pairs(pairs,input_lang,output_lang, char=target_char)
+pairs = trim_pairs(pairs, char=target_char)
 
 
 
