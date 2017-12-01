@@ -527,7 +527,6 @@ def pad_seq(seq, max_length):
 def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, max_length_input, max_length_output, char_output=False):
     input_seqs = []
     target_seqs = []
-    print("here 1")
     # Choose random pairs
     for i in range(batch_size):
         pair = random.choice(pairs)
@@ -551,7 +550,6 @@ def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, max_lengt
     if opt.USE_CUDA:
         input_var = input_var.cuda()
         target_var = target_var.cuda()
-    print("here 2 ")
     return input_var, input_lengths, target_var, target_lengths
 
 # def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, max_length_input, max_length_output, char_output=False):
@@ -926,7 +924,6 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
         target_lengths
     )
     loss.backward()
-    print("here")
     # Clip gradient norms
     ec = torch.nn.utils.clip_grad_norm(encoder.parameters(), opt.clip)
     dc = torch.nn.utils.clip_grad_norm(decoder.parameters(), opt.clip)
@@ -1030,7 +1027,6 @@ print(opt)
 # Initialize models
 encoder = EncoderRNN(input_lang.n_words, opt.hidden_size, opt.n_layers, dropout=opt.dropout)
 decoder = BahdanauAttnDecoderRNN( opt.hidden_size, output_lang.n_words, opt.n_layers, dropout_p=opt.dropout)
-print("here A")
 # Initialize optimizers and criterion
 if opt.optimizer == "Adam":
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=opt.learning_rate)
@@ -1042,14 +1038,12 @@ elif opt.optimizer == "SGD":
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=opt.learning_rate)
 else:
     raise ValueError('Optimizer options not found: Select SGD or Adam')
-print("here B ")
 criterion = nn.CrossEntropyLoss()
 
 # Move models to GPU
 if opt.USE_CUDA:
     encoder.cuda()
     decoder.cuda()
-print("here C")
 # Keep track of time elapsed and running averages
 start = time.time()
 plot_losses = []
