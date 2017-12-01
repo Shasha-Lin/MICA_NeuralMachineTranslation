@@ -1059,7 +1059,6 @@ eca = 0
 dca = 0
 
 while epoch < opt.n_epochs:
-    print(epoch)
     epoch += 1
 
     # Get training data for this cycle
@@ -1071,7 +1070,6 @@ while epoch < opt.n_epochs:
                          opt.MAX_LENGTH, 
                          opt.MAX_LENGTH_TARGET, 
                          char_output=target_char)
-    print("training...")
     # Run the train function
     loss, ec, dc = train(
         input_batches, input_lengths, target_batches, target_lengths,
@@ -1082,7 +1080,6 @@ while epoch < opt.n_epochs:
     plot_loss_total += loss
     eca += ec
     dca += dc
-    print("not training...")
 
     if epoch % print_every == 0:
         print("printing loss")
