@@ -231,7 +231,7 @@ class Lang(object):
         # Reinitialize dictionaries
         self.__word2idx = {}
         self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:'<UNK>'}
-        self.n_words = 3 # Count default tokens
+        self.n_words = 4 # Count default tokens
 
         for word in keep_words:
             self.index_word(word)
@@ -254,9 +254,9 @@ class Tokenizer(Lang):
         self.__word2idx = {}
         if os.path.isfile(vocab_file):
             self.load_vocab(vocab_file)
-        self.n_words = 3
+        self.n_words = 4
         self.trimmed = False
-        self.index2word = {0: "PAD_TOKEN", 1: "SOS_TOKEN", 2: "EOS_TOKEN"}
+        self.index2word = {0: "PAD_TOKEN", 1: "SOS_TOKEN", 2: "EOS_TOKEN", 3:'<UNK>'}
 
 
     @property
@@ -368,6 +368,53 @@ class CharTokenizer(Tokenizer):
     def detokenize(self, inputs, delimiter=u''):
         return super(CharTokenizer, self).detokenize(inputs, delimiter)
     
+    
+    
+
+def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
+               term="txt", reverse=False, char_output=False):
+    print("Reading lines...")
+    # Read the file and split into lines
+    # Attach the path here for the source and target language dataset
+    if set_type == "train":
+        filename = '%s/train/%s-%s.%s' % (path, lang1, lang2, term)
+    elif set_type == "dev":
+        filename = '%s/dev/%s-%s.%s' % (path, lang1, lang2, term)
+    elif set_type == "valid":
+        filename = '%s/dev/%s-%s.%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2010":
+        filename = '%s/test/%s-%s.tst2010-%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2011":
+        filename = '%s/test/%s-%s.tst2011-%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2012":
+        filename = '%s/test/%s-%s.tst2012-%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2013":
+        filename = '%s/test/%s-%s.tst2013-%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2014":
+        filename = '%s/test/%s-%s.tst2014-%s' % (path, lang1, lang2, term)
+    else:
+        raise ValueError("set_type not found. Check data folder options")
+
+    # lines contains the data in form of a list
+    lines = open(filename).read().strip().split('\n')
+    # Split every line into pairs
+    if normalize == True:
+        pairs = [[normalize_string(s) for s in l.split('\t')] for l in lines]
+    else:
+        pairs = [[s for s in l.split('\t')] for l in lines]
+    # Reverse pairs, make Lang instances
+    if reverse:
+        pairs = [list(reversed(p)) for p in pairs]
+        input_lang = Lang(lang2)
+        output_lang = Lang(lang1)
+    else:
+        input_lang = Lang(lang1)
+        if char_output:
+            output_lang = CharTokenizer(vocab_file='')
+        else:
+            output_lang = Lang(lang2)
+
+    return input_lang, output_lang, pairs
     
     
 
