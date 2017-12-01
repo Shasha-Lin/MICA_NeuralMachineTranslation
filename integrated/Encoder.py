@@ -6,7 +6,7 @@ from data_for_modeling import *
 
 # Enocders and Attention module are coded as described in the paper : https://arxiv.org/pdf/1409.0473.pdf
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):
+    def __init__(self, use_cuda, batch_size, input_size, hidden_size, n_layers=1, dropout=0.1):
         super(EncoderRNN, self).__init__()
         
         self.input_size = input_size
@@ -16,14 +16,27 @@ class EncoderRNN(nn.Module):
         
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
-        
+        self.use_cuda = use_cuda
+        self.batch_size = batch_size
     def forward(self, input_seqs, input_lengths, hidden=None):
         # Note: we run this all at once (over multiple batches of multiple sequences)
+        print(self.embedding(Variable(torch.ones([8, 4]) * 10).long()))
+        exit()
         embedded = self.embedding(input_seqs)
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs) # unpack (back to padded)
-        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] # Sum bidirectional outputs
+        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:]# Sum bidirectional outputs
         return outputs, hidden
+
+    def initHidden(self):
+        if self.gru.bidirectional:
+            result = Variable(torch.zeros(2, self.batch_size, self.hidden_size))
+        else:
+            result = Variable(torch.zeros(1, self.batch_size, self.hidden_size))
+        if self.use_cuda:
+            return result.cuda()
+        else:
+            return result
     
     

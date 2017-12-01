@@ -51,7 +51,7 @@ def get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidd
                     topv = topv[0]
                     topi = topi[0]
                     dec_attns = temp[keys[i]][2]
-                    dec_attns[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).data
+                    dec_attns[di,:decoder_attention.size(-1)] += decoder_attention.squeeze(0).squeeze(0).data
                     update_dictionary(target_sequence, topv, topi, keys[i], dec_hidden, dec_attns)
         
         # Sort the target_Sequence dictionary to keep top k sequences only
@@ -95,10 +95,8 @@ def evaluate(input_lang, output_lang, encoder, decoder, sentence, max_length, km
 
     # TODO fix line below
     decoder_hidden = encoder_hidden[:decoder.n_layers]
-
     decoder_input = Variable(torch.LongTensor([SOS_token]), volatile=True)
     decoder_input = decoder_input.cuda() if use_cuda else decoder_input
-
     decoder_attentions = torch.zeros(max_length, max_length)
     decoder_attentions = decoder_attentions.cuda() if use_cuda else decoder_attentions
     

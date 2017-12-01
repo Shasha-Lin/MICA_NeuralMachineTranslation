@@ -34,7 +34,9 @@ def train(use_cuda, input_variable, input_lengths, target_variable, target_lengt
     decoder_optimizer.zero_grad()
     loss = 0
     # Run words through encoder
-    encoder_outputs, encoder_hidden = encoder(input_variable, input_lengths, None)
+    encoder_hidden = encoder.initHidden()
+
+    encoder_outputs, encoder_hidden = encoder(input_variable, input_lengths, encoder_hidden)
     decoder_input = Variable(torch.LongTensor([SOS_token] * batch_size))
     decoder_hidden = encoder_hidden[:decoder.n_layers]  # Use last (forward) hidden state from encoder
     max_target_length = max(target_lengths)

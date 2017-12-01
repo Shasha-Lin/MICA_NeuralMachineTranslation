@@ -27,7 +27,7 @@ parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
 parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='Teacher forcing ratio for encoder')
 parser.add_argument('--hidden_size', type=int, default=256, help='Size of hidden layer')
 parser.add_argument('--n_iters', type=int, default=3000, help='Number of single iterations through the data')
-parser.add_argument('--learning_rate', type=float, default=0.01, help='Learning rate (for both, encoder and decoder)')
+parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate (for both, encoder and decoder)')
 parser.add_argument('--n_layers', type=int, default=1, help='Number of layers (for both, encoder and decoder)')
 parser.add_argument('--dropout_enc', type=float, default=0.1, help='Dropout (%) in the encoder')
 parser.add_argument('--dropout_dec', type=float, default=0.1, help='Dropout (%) in the decoder')
@@ -37,7 +37,7 @@ parser.add_argument('--main_data_dir', type=str,
                     help='Directory where data is saved (containing folders tain/dev/test)')
 parser.add_argument('--out_dir', type=str, default=".", help="Directory to save the models state dict")
 parser.add_argument('--save_every', type=int, default=500, help='Checkpoint model after number of iters')
-parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
+parser.add_argument('--print_every', type=int, default=10, help='Print training loss after numuateber of iters')
 parser.add_argument('--eval_every', type=int, default=5, help='Evaluate translation on dev pairs after number of iters')
 # translation params
 parser.add_argument('--enc_checkpoint', type=str, default=".", help="checkpoint to load encoder from (Default: None)")
@@ -72,7 +72,7 @@ def main():
                                                   max_length_target=opt.MAX_LENGTH_TARGET, normalize=False, reverse=False,
                                                   path=opt.main_data_dir, term=opt.model_type, char_output=target_char)
     torch.save(output_lang, "{}/output_lang.pth".format(opt.out_dir))
-    encoder = EncoderRNN(input_lang.n_words, opt.hidden_size, opt.n_layers, dropout=opt.dropout_enc)
+    encoder = EncoderRNN(use_cuda, opt.batch_size, input_lang.n_words, opt.hidden_size, opt.n_layers, dropout=opt.dropout_enc)
     # attn_decoder1 = AttnDecoderRNN(opt.hidden_size, output_lang.n_words,
     #                                opt.n_layers, dropout_p=opt.dropout_dec)
     decoder = BahdanauAttnDecoderRNN(use_cuda, opt.hidden_size, output_lang.n_words, n_layers=1, dropout_p=opt.dropout_dec,
