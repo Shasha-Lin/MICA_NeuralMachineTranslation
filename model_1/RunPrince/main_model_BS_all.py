@@ -8,7 +8,6 @@ import random
 import time
 import datetime
 import math
-
 import nltk
 import torch
 import torch.nn as nn
@@ -17,7 +16,6 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
-
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
@@ -42,7 +40,7 @@ def parse_args():
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
     parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
-    parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='Teacher forcing ratio for encoder')
+    # parser.add_argument('--teacher_forcing_ratio', type=float, default=1, help='Teacher forcing ratio for encoder')
     parser.add_argument('--hidden_size', type=int, default=1024, help='Size of hidden layer')
     parser.add_argument('--n_epochs', type=int, default=20, help='Number of single iterations through the data')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate (for both, encoder and decoder)')
@@ -62,6 +60,8 @@ def parse_args():
     parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
     parser.add_argument('--eval_every', type=int, default=5, help='Evaluate translation on dev pairs after number of iters')
     parser.add_argument('--plot_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--scheduled_sampling_k', type=int, default=3000, help='scheduled sampling parameter for teacher forcing, \
+        based on inverse sigmoid decay')
     parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
 
     opt = parser.parse_args()
@@ -983,7 +983,12 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, opt.batch_size, decoder.output_size))
     all_decoder_outputs = all_decoder_outputs.cuda() if opt.USE_CUDA else all_decoder_outputs
-    use_teacher_forcing = True if random.random() < opt.teacher_forcing_ratio else False
+
+    # teacher forcing ratio implemented with inverse sigmoid decay
+    # ref: https://arxiv.org/pdf/1506.03099.pdf
+    teacher_forcing_ratio = opt.scheduled_sampling_k/(opt.scheduled_sampling_k+np.exp(epoch/opt.scheduled_sampling_k))
+
+    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
     # Run through decoder one time step at a time
     if use_teacher_forcing:
