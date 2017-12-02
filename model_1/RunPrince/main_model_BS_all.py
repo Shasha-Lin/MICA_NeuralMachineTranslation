@@ -978,6 +978,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
 
     # Prepare input and output variables
     decoder_input = Variable(torch.LongTensor([SOS_token] * opt.batch_size))
+    decoder_input = decoder_input.cuda() if opt.USE_CUDA else decoder_input
     decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
         
     max_target_length = max(target_lengths)
@@ -1192,7 +1193,7 @@ while epoch < opt.n_epochs:
         plot_loss_avg = plot_loss_total / plot_every
         plot_losses.append(plot_loss_avg)
         plot_loss_total = 0
-        eca = 0
-        dca = 0
+    eca = 0
+    dca = 0
         
         
