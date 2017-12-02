@@ -979,30 +979,45 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
     # Prepare input and output variables
     decoder_input = Variable(torch.LongTensor([SOS_token] * opt.batch_size))
     decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
-
+        
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, opt.batch_size, decoder.output_size))
-
+    
     # Move new Variables to CUDA
     if opt.USE_CUDA:
         decoder_input = decoder_input.cuda()
         all_decoder_outputs = all_decoder_outputs.cuda()
+    
+    use_teacher_forcing = True if random.random() < opt.teacher_forcing_ratio else False
+    
+    if use_teacher_forcing:
 
-    # Run through decoder one time step at a time
-    for t in range(max_target_length):
-        decoder_output, decoder_hidden, decoder_attn = decoder(
-            decoder_input, decoder_hidden, encoder_outputs
-        )
+        # Run through decoder one time step at a time
+        for t in range(max_target_length):
+            decoder_output, decoder_hidden, decoder_attn = decoder(
+                decoder_input, decoder_hidden, encoder_outputs
+            )
 
-        all_decoder_outputs[t] = decoder_output
-        decoder_input = target_batches[t] # Next input is current target
-
+            all_decoder_outputs[t] = decoder_output
+            decoder_input = target_batches[t] # Next input is current target
+    
+    else: 
+        # Without teacher forcing: use its own predictions as the next input
+        for t in range(max_target_length):
+            decoder_output, decoder_hidden, decoder_attn = decoder(
+                decoder_input, decoder_hidden, encoder_outputs
+            )  
+            all_decoder_outputs[t] = decoder_output
+            topv, topi = decoder_output.data.topk(1)
+            decoder_input= Variable(topi.squeeze(1))
+            
     # Loss calculation and backpropagation
     loss = masked_cross_entropy(
         all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
         target_batches.transpose(0, 1).contiguous(), # -> batch x seq
         target_lengths
     )
+   
     loss.backward()
     # Clip gradient norms
     ec = torch.nn.utils.clip_grad_norm(encoder.parameters(), opt.clip)
