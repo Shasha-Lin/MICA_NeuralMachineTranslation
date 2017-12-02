@@ -370,7 +370,7 @@ class CharTokenizer(Tokenizer):
     
     
     
-
+'''
 def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
                term="txt", reverse=False, char_output=False):
     print("Reading lines...")
@@ -415,7 +415,7 @@ def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
             output_lang = Lang(lang2)
 
     return input_lang, output_lang, pairs
-    
+'''    
     
 
 def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
@@ -641,7 +641,8 @@ class EncoderRNN(nn.Module):
 
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
-
+       
+        self.init_weights()
 
     def forward(self, input_seqs, input_lengths, hidden=None): # hidden vector starts with zero (a guess!)
 
@@ -653,6 +654,14 @@ class EncoderRNN(nn.Module):
         outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs) # unpack (back to padded)
         outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] # Sum bidirectional outputs
         return outputs, hidden
+
+    def init_weights(self):
+        
+        initrange = 0.1
+        init_vars = [self.embedding]
+        
+        for var in init_vars:
+            var.weight.data.uniform_(-initrange, initrange)   
 
 class Attn(nn.Module):
     def __init__(self, method, hidden_size):
@@ -667,6 +676,8 @@ class Attn(nn.Module):
         elif self.method == 'concat':
             self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
             self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
+
+        self.init_weights()
 
     def forward(self, hidden, encoder_outputs):
         max_len = encoder_outputs.size(0)
@@ -703,6 +714,17 @@ class Attn(nn.Module):
             energy = (self.v.squeeze(0)).dot(energy)
             return energy
 
+    def init_weights(self):
+        
+        initrange = 0.1
+        init_vars = [self.attn]
+        lin_layers = [self.attn]
+        
+        for var in init_vars:
+            var.weight.data.uniform_(-initrange, initrange)
+            if var in lin_layers:
+                var.bias.data.fill_(0)    
+
 ###############################
 #  BAHDANAU_ATTN_DECODER_RNN  #
 ###############################
@@ -729,6 +751,8 @@ class BahdanauAttnDecoderRNN(nn.Module):
         # self.out = nn.Linear(hidden_size * 2, output_size) # use of linear layer ?
         self.out = nn.Linear(hidden_size, output_size)
 
+        self.init_weights()
+
     def forward(self, word_input, last_hidden, encoder_outputs):
 
         # Get the embedding of the current input word (last output word)
@@ -750,6 +774,17 @@ class BahdanauAttnDecoderRNN(nn.Module):
         # output = F.log_softmax(self.out(torch.cat((output, context.squeeze(0)), 1)))
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights
+
+    def init_weights(self):
+        
+        initrange = 0.1
+        init_vars = [self.embedding, self.out]
+        lin_layers = [self.out]
+        
+        for var in init_vars:
+            var.weight.data.uniform_(-initrange, initrange)
+            if var in lin_layers:
+                var.bias.data.fill_(0)
 
 #################
 # 4. Evaluation #
