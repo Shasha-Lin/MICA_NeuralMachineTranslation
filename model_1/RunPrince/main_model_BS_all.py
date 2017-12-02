@@ -67,6 +67,9 @@ def parse_args():
     opt = parser.parse_args()
     print(opt)
 
+    if opt.experiment is None:
+        opt.experiment = 'MICA_experiment'
+    os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
 
     ######## Comet ML ########
     #experiment = comet_mirror("Experiment2")
@@ -1186,8 +1189,9 @@ while epoch < opt.n_epochs:
         experiment.log_metric("Bleu score", print_loss_avg)
 
     if epoch % save_every == 0:
-        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
-        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))
+        print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
 
     if epoch % plot_every == 0:
         plot_loss_avg = plot_loss_total / plot_every
