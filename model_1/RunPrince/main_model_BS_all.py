@@ -982,6 +982,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
         
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, opt.batch_size, decoder.output_size))
+    all_decoder_outputs = all_decoder_outputs.cuda() if opt.USE_CUDA else all_decoder_outputs
     use_teacher_forcing = True if random.random() < opt.teacher_forcing_ratio else False
 
     # Run through decoder one time step at a time
