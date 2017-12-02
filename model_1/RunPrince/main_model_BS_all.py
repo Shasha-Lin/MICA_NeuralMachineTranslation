@@ -35,9 +35,9 @@ import subprocess
 ######## File params ########
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--MIN_LENGTH', type=int, default=2, help='Min Length of sequence (Input side)')
+    parser.add_argument('--MIN_LENGTH', type=int, default=1, help='Min Length of sequence (Input side)')
     parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence (Input side)')
-    parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=2, help='Min Length of sequence (Output side)')
+    parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=1, help='Min Length of sequence (Output side)')
     parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=40, help='Max Length of sequence (Output side)')
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
@@ -55,14 +55,14 @@ def parse_args():
     parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
     parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
     parser.add_argument('--clip', type=int, default=1, help="Clipping the gradients")
-    parser.add_argument('--batch_size', type=int, default=32, help="Size of a batch")
+    parser.add_argument('--batch_size', type=int, default=128, help="Size of a batch")
     parser.add_argument('--min_count_trim_output', type=int, default=5, help="trim infrequent output words")
     parser.add_argument('--min_count_trim_input', type=int, default=5, help="trim infrequent input words")
-    parser.add_argument('--save_every', type=int, default=5, help='Checkpoint model after number of iters')
-    parser.add_argument('--print_every', type=int, default=1, help='Print training loss after number of iters')
-    parser.add_argument('--eval_every', type=int, default=1, help='Evaluate translation on dev pairs after number of iters')
-    parser.add_argument('--plot_every', type=int, default=1, help='Evaluate translation on dev pairs after number of iters')
-    parser.add_argument('--experiment', type=str, default="Shasha", help='experiment name')
+    parser.add_argument('--save_every', type=int, default=50, help='Checkpoint model after number of iters')
+    parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
+    parser.add_argument('--eval_every', type=int, default=5, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--plot_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
 
     opt = parser.parse_args()
     print(opt)
@@ -982,21 +982,35 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
 
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, opt.batch_size, decoder.output_size))
-
+    use_teacher_forcing = True if random.random() < opt.teacher_forcing_ratio else False
+    
     # Move new Variables to CUDA
     if opt.USE_CUDA:
         decoder_input = decoder_input.cuda()
         all_decoder_outputs = all_decoder_outputs.cuda()
 
     # Run through decoder one time step at a time
-    for t in range(max_target_length):
-        decoder_output, decoder_hidden, decoder_attn = decoder(
-            decoder_input, decoder_hidden, encoder_outputs
-        )
+    if use_teacher_forcing:
+        for t in range(max_target_length):
+            decoder_output, decoder_hidden, decoder_attn = decoder(
+                decoder_input, decoder_hidden, encoder_outputs
+            )
 
-        all_decoder_outputs[t] = decoder_output
-        decoder_input = target_batches[t] # Next input is current target
+            all_decoder_outputs[t] = decoder_output
+            decoder_input = target_batches[t] # Next input is current target
+    else:
+        for di in range(max_target_length):
+            decoder_output, decoder_hidden, decoder_attn = decoder(
+                decoder_input, decoder_hidden, encoder_outputs)
+            topv, topi = decoder_output.data.topk(1)
+            ni = topi[0][0]
 
+            decoder_input = Variable(torch.LongTensor([ni]*opt.batch_size))
+            decoder_input = decoder_input.cuda() if opt.USE_CUDA else decoder_input
+            # record outputs for backprop
+            all_decoder_outputs[di] = decoder_output
+            if ni == EOS_token:
+                break
     # Loss calculation and backpropagation
     loss = masked_cross_entropy(
         all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
