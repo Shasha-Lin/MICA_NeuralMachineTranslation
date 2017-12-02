@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument('--MIN_LENGTH', type=int, default=1, help='Min Length of sequence (Input side)')
     parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence (Input side)')
     parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=1, help='Min Length of sequence (Output side)')
-    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=40, help='Max Length of sequence (Output side)')
+    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=200, help='Max Length of sequence (Output side)')
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
     parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
@@ -979,15 +979,10 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
     # Prepare input and output variables
     decoder_input = Variable(torch.LongTensor([SOS_token] * opt.batch_size))
     decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
-
+        
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, opt.batch_size, decoder.output_size))
     use_teacher_forcing = True if random.random() < opt.teacher_forcing_ratio else False
-    
-    # Move new Variables to CUDA
-    if opt.USE_CUDA:
-        decoder_input = decoder_input.cuda()
-        all_decoder_outputs = all_decoder_outputs.cuda()
 
     # Run through decoder one time step at a time
     if use_teacher_forcing:
@@ -998,6 +993,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
 
             all_decoder_outputs[t] = decoder_output
             decoder_input = target_batches[t] # Next input is current target
+
     else:
         for di in range(max_target_length):
             decoder_output, decoder_hidden, decoder_attn = decoder(
@@ -1011,12 +1007,15 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
             all_decoder_outputs[di] = decoder_output
             if ni == EOS_token:
                 break
+
+            
     # Loss calculation and backpropagation
     loss = masked_cross_entropy(
         all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
         target_batches.transpose(0, 1).contiguous(), # -> batch x seq
         target_lengths
     )
+   
     loss.backward()
     # Clip gradient norms
     ec = torch.nn.utils.clip_grad_norm(encoder.parameters(), opt.clip)
