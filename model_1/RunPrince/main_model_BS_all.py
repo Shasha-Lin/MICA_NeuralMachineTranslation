@@ -48,17 +48,17 @@ def parse_args():
     parser.add_argument('--dropout', type=float, default=0.1, help='Dropout (%) in the decoder')
     parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
     parser.add_argument('--main_data_dir', type=str, default= "/scratch/eff254/NLP/Data/Model_ready", help='Directory where data is saved (in folders tain/dev/test)')
-    parser.add_argument('--out_dir', type=str, default="", help="Directory to save the models state dict (No default)")
+    parser.add_argument('--out_dir', type=str, default="checkpoints", help="Directory to save the models state dict (No default)")
     parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation/", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
     parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
     parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
     parser.add_argument('--clip', type=int, default=1, help="Clipping the gradients")
     parser.add_argument('--batch_size', type=int, default=128, help="Size of a batch")
-    parser.add_argument('--min_count_trim_output', type=int, default=5, help="trim infrequent output words")
-    parser.add_argument('--min_count_trim_input', type=int, default=5, help="trim infrequent input words")
+    parser.add_argument('--min_count_trim_output', type=int, default=2, help="trim infrequent output words")
+    parser.add_argument('--min_count_trim_input', type=int, default=2, help="trim infrequent input words")
     parser.add_argument('--save_every', type=int, default=50, help='Checkpoint model after number of iters')
     parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
-    parser.add_argument('--eval_every', type=int, default=5, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--eval_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
     parser.add_argument('--plot_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
     parser.add_argument('--scheduled_sampling_k', type=int, default=3000, help='scheduled sampling parameter for teacher forcing, \
         based on inverse sigmoid decay')
@@ -67,6 +67,8 @@ def parse_args():
     opt = parser.parse_args()
     print(opt)
 
+    if opt.experiment is None:
+        opt.experiment = 'MICA_experiment'
 
     ######## Comet ML ########
     #experiment = comet_mirror("Experiment2")
@@ -81,6 +83,7 @@ def parse_args():
 
 
 opt, target_char , experiment = parse_args()
+os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
 
 
 
@@ -1092,20 +1095,6 @@ input_lang, output_lang, pairs = prepare_data(opt.lang1,
                                               char_output=target_char
                                              )
 
-input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1,
-                                              opt.lang2,
-                                              do_filter=True,
-                                              min_length_input=opt.MIN_LENGTH, 
-                                              max_length_input=opt.MAX_LENGTH,
-                                              min_length_target=opt.MIN_LENGTH_TARGET,
-                                              max_length_target=opt.MAX_LENGTH_TARGET, 
-                                              normalize=False, 
-                                              reverse=False, 
-                                              path=opt.main_data_dir, 
-                                              term=opt.model_type,
-                                              char_output=target_char,
-                                              set_type="valid")
-
 
 # TRIMMING DATA:
 
@@ -1136,6 +1125,20 @@ def trim_pairs(pairs, char=False):
 
 pairs = trim_pairs(pairs, char=target_char)
 
+input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1,
+                                              opt.lang2,
+                                              do_filter=True,
+                                              min_length_input=opt.MIN_LENGTH, 
+                                              max_length_input=opt.MAX_LENGTH,
+                                              min_length_target=opt.MIN_LENGTH_TARGET,
+                                              max_length_target=opt.MAX_LENGTH_TARGET, 
+                                              normalize=False, 
+                                              reverse=False, 
+                                              path=opt.main_data_dir, 
+                                              term=opt.model_type,
+                                              char_output=target_char,
+                                              set_type="valid")
+
 
 
 ####################
@@ -1150,7 +1153,7 @@ plot_every = opt.plot_every
 print_every = opt.print_every
 save_every = opt.save_every
 evaluate_every = opt.eval_every # We check the validation in every 10,000 minibatches
-print(opt)
+
 # Initialize models
 encoder = EncoderRNN(input_lang.n_words, opt.hidden_size, opt.n_layers, dropout=opt.dropout)
 decoder = BahdanauAttnDecoderRNN( opt.hidden_size, output_lang.n_words, opt.n_layers, dropout_p=opt.dropout)
@@ -1222,8 +1225,9 @@ while epoch < opt.n_epochs:
         experiment.log_metric("Bleu score", print_loss_avg)
 
     if epoch % save_every == 0:
-        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
-        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))
+        print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
 
     if epoch % plot_every == 0:
         plot_loss_avg = plot_loss_total / plot_every
