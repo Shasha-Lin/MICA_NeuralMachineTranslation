@@ -17,14 +17,12 @@ module load nltk/python3.5/3.2.4 # It is possible that you need to download nltk
 
 model_type=$1
 learning_rate=$2
-embed_size=$3
-hidden_size=$4
-kmax=$5
-n_layers=$6
-code_dir=$7
-attention=$8
-experiment=$9
+hidden_size=$3
+kmax=$4
+n_layers=$5
+code_dir=$6
+attention=$7
+experiment=$8
 python3 -m pip install comet_ml --user
 
-python3 -u  $code_dir --USE_CUDA --learning_rate $learning_rate --model_type "$model_type" --attention "$attention" --embed_size $embed_size --hidden_size $hidden_size  --kmax $kmax --experiment $experiment
-
+python3 -u  $code_dir --USE_CUDA --learning_rate $learning_rate --model_type "$model_type" --attention "$attention" --hidden_size $hidden_size --kmax $kmax --experiment $experiment
