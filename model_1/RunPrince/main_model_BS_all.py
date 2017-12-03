@@ -40,7 +40,7 @@ def parse_args():
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
     parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
-    parse.add_argument('--attention', type=str, default='Bahdanau', help='attention type: either Bahdanau or Luong')
+    parser.add_argument('--attention', type=str, default='Bahdanau', help='attention type: either Bahdanau or Luong')
     # parser.add_argument('--teacher_forcing_ratio', type=float, default=1, help='Teacher forcing ratio for encoder')
     parser.add_argument('--hidden_size', type=int, default=1024, help='Size of hidden layer')
     parser.add_argument('--n_epochs', type=int, default=20, help='Number of single iterations through the data')
