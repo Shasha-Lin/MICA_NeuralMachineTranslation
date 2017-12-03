@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument('--attention', type=str, default='Bahdanau', help='attention type: either Bahdanau or Luong')
     # parser.add_argument('--teacher_forcing_ratio', type=float, default=1, help='Teacher forcing ratio for encoder')
     parser.add_argument('--hidden_size', type=int, default=1024, help='Size of hidden layer')
-    parser.add_argument('--n_epochs', type=int, default=20, help='Number of single iterations through the data')
+    parser.add_argument('--n_epochs', type=int, default=50000, help='Number of single iterations through the data')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate (for both, encoder and decoder)')
     parser.add_argument('--n_layers', type=int, default=2, help='Number of layers (for both, encoder and decoder)')
     parser.add_argument('--dropout', type=float, default=0.1, help='Dropout (%) in the decoder')
@@ -667,42 +667,6 @@ class EncoderRNN(nn.Module):
         for var in init_vars:
             var.weight.data.uniform_(-initrange, initrange)   
 
-###################################
-# 3. Main model encoder - decoder #
-###################################
-
-class EncoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):
-        super(EncoderRNN, self).__init__()
-
-        self.input_size = input_size #no of words in the input Language
-        self.hidden_size = hidden_size
-        self.n_layers = n_layers
-        self.dropout = dropout
-
-        self.embedding = nn.Embedding(input_size, hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
-       
-        self.init_weights()
-
-    def forward(self, input_seqs, input_lengths, hidden=None): # hidden vector starts with zero (a guess!)
-
-        # Note: we run this all at once (over multiple batches of multiple sequences)
-        embedded = self.embedding(input_seqs) # size = (max_length, batch_size, embed_size). NOTE: embed_size = hidden size here
-        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths) # size = (max_length * batch_size, embed_size)
-
-        outputs, hidden = self.gru(packed, hidden) # outputs are supposed to be probability distribution right?
-        outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs) # unpack (back to padded)
-        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] # Sum bidirectional outputs
-        return outputs, hidden
-
-    def init_weights(self):
-        
-        initrange = 0.1
-        init_vars = [self.embedding]
-        
-        for var in init_vars:
-            var.weight.data.uniform_(-initrange, initrange)   
 
 class Attn(nn.Module):
     def __init__(self, method, hidden_size):
