@@ -40,6 +40,7 @@ def parse_args():
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
     parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
+    parse.add_argument('--attention', type=str, default='Bahdanau', help='attention type: either Bahdanau or Luong')
     # parser.add_argument('--teacher_forcing_ratio', type=float, default=1, help='Teacher forcing ratio for encoder')
     parser.add_argument('--hidden_size', type=int, default=1024, help='Size of hidden layer')
     parser.add_argument('--n_epochs', type=int, default=20, help='Number of single iterations through the data')
@@ -59,7 +60,6 @@ def parse_args():
     parser.add_argument('--save_every', type=int, default=50, help='Checkpoint model after number of iters')
     parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
     parser.add_argument('--eval_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
-    parser.add_argument('--plot_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
     parser.add_argument('--scheduled_sampling_k', type=int, default=3000, help='scheduled sampling parameter for teacher forcing, \
         based on inverse sigmoid decay')
     parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
@@ -731,8 +731,9 @@ class Attn(nn.Module):
         # For each batch of encoder outputs
         for b in range(this_batch_size):
             # Calculate energy for each encoder output
-            for i in range(max_len):
+            for i in range(max_len): 
                 attn_energies[b, i] = self.score(hidden[b,:], encoder_outputs[i, b])
+                
 
         # Normalize energies to weights in range 0 to 1, resize to 1 x B x S
         return F.softmax(attn_energies).unsqueeze(1)
@@ -740,9 +741,8 @@ class Attn(nn.Module):
     def score(self, hidden, encoder_output):
 
         if self.method == 'dot':
-            energy = hidden.dot(encoder_output)
+            energy = hidden.squeeze(0).dot(encoder_output)
             return energy
-
         elif self.method == 'general':
             energy = self.attn(encoder_output)
             energy = hidden.dot(energy)
@@ -762,7 +762,7 @@ class Attn(nn.Module):
         for var in init_vars:
             var.weight.data.uniform_(-initrange, initrange)
             if var in lin_layers:
-                var.bias.data.fill_(0)        
+                var.bias.data.fill_(0)    
 
 ###############################
 #  BAHDANAU_ATTN_DECODER_RNN  #
@@ -814,6 +814,74 @@ class BahdanauAttnDecoderRNN(nn.Module):
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights
 
+    def init_weights(self):
+        
+        initrange = 0.1
+        init_vars = [self.embedding, self.out]
+        lin_layers = [self.out]
+        
+        for var in init_vars:
+            var.weight.data.uniform_(-initrange, initrange)
+            if var in lin_layers:
+                var.bias.data.fill_(0)
+
+
+
+###############################
+#  LuongAttnDecoderRNN  #
+###############################
+class LuongAttnDecoderRNN(nn.Module):
+    def __init__(self, attn_model, hidden_size, output_size, n_layers=1, dropout=0.1):
+        super(LuongAttnDecoderRNN, self).__init__()
+
+        # Keep for reference
+        self.attn_model = attn_model
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.n_layers = n_layers
+        self.dropout = dropout
+
+        # Define layers
+        self.embedding = nn.Embedding(output_size, hidden_size)
+        self.embedding_dropout = nn.Dropout(dropout)
+        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=dropout)
+        self.concat = nn.Linear(hidden_size * 2, hidden_size)
+        self.out = nn.Linear(hidden_size, output_size)
+        
+        # Choose attention model
+        if attn_model != 'none':
+            self.attn = Attn(attn_model, hidden_size)
+
+    def forward(self, input_seq, last_hidden, encoder_outputs):
+        # Note: we run this one step at a time
+
+        # Get the embedding of the current input word (last output word)
+        batch_size = input_seq.size(0)
+        embedded = self.embedding(input_seq)
+        embedded = self.embedding_dropout(embedded)
+        embedded = embedded.view(1, batch_size, self.hidden_size) # S=1 x B x N
+
+        # Get current hidden state from input word and last hidden state
+        rnn_output, hidden = self.gru(embedded, last_hidden)
+
+        # Calculate attention from current RNN state and all encoder outputs;
+        # apply to encoder outputs to get weighted average 
+
+        attn_weights = self.attn(rnn_output.transpose(0, 1), encoder_outputs) # B*1*S encoder_outputs: S*B*emb
+        context = attn_weights.bmm(encoder_outputs.transpose(0, 1)).squeeze(1)
+        # Attentional vector using the RNN hidden state and context vector
+        # concatenated together (Luong eq. 5)        
+        rnn_output = rnn_output.squeeze(0) # S=1 x B x N -> B x N
+        # context = context.squeeze(1)       # B x S=1 x N -> B x N
+        concat_input = torch.cat((rnn_output, context), 1)
+        concat_output = F.tanh(self.concat(concat_input))
+
+        # Finally predict next token (Luong eq. 6, without softmax)
+        output = self.out(concat_output)
+
+        # Return final output, hidden state, and attention weights (for visualization)
+        return output, hidden, attn_weights
+    
     def init_weights(self):
         
         initrange = 0.1
@@ -1149,14 +1217,17 @@ input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1,
 # attn_model = 'dot'
 # decoder_learning_ratio = 5.0
 epoch = 0
-plot_every = opt.plot_every
 print_every = opt.print_every
 save_every = opt.save_every
 evaluate_every = opt.eval_every # We check the validation in every 10,000 minibatches
 
 # Initialize models
 encoder = EncoderRNN(input_lang.n_words, opt.hidden_size, opt.n_layers, dropout=opt.dropout)
-decoder = BahdanauAttnDecoderRNN( opt.hidden_size, output_lang.n_words, opt.n_layers, dropout_p=opt.dropout)
+
+if opt.attention == 'Luong':
+    decoder = LuongAttnDecoderRNN('dot', opt.hidden_size, output_lang.n_words, opt.n_layers, dropout=opt.dropout)
+else:
+    decoder = BahdanauAttnDecoderRNN( opt.hidden_size, output_lang.n_words, opt.n_layers, dropout_p=opt.dropout)
 # Initialize optimizers and criterion
 if opt.optimizer == "Adam":
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=opt.learning_rate)
@@ -1176,9 +1247,7 @@ if opt.USE_CUDA:
     decoder.cuda()
 # Keep track of time elapsed and running averages
 start = time.time()
-plot_losses = []
 print_loss_total = 0 # Reset every print_every
-plot_loss_total = 0 # Reset every plot_every
 
 
 ###############
@@ -1207,7 +1276,6 @@ while epoch < opt.n_epochs:
         encoder_optimizer, decoder_optimizer)
     # Keep track of loss
     print_loss_total += loss
-    plot_loss_total += loss
     eca += ec
     dca += dc
 
@@ -1222,17 +1290,11 @@ while epoch < opt.n_epochs:
         evaluate_randomly()
         blue_score = multi_blue_dev(pairs_dev)
         print("Bleu score at {} iteration = {}".format(epoch, blue_score))
-        experiment.log_metric("Bleu score", print_loss_avg)
+        experiment.log_metric("Bleu score", blue_score)
 
     if epoch % save_every == 0:
-        print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-
-    if epoch % plot_every == 0:
-        plot_loss_avg = plot_loss_total / plot_every
-        plot_losses.append(plot_loss_avg)
-        plot_loss_total = 0
+        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
+        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))
     eca = 0
     dca = 0
         
