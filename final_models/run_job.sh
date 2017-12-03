@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-#SBATCH --job-name=mica_edu_akash
+#SBATCH --job-name=mica_trials
 #SBATCH --gres=gpu:1
-#SBATCH --time=40:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem=40GB
 #SBATCH --output=slurm-%A.out
 #SBATCH --error=slurm-%A.err
