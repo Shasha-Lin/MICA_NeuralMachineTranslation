@@ -1292,11 +1292,11 @@ while epoch < opt.n_epochs:
         blue_score = multi_blue_dev(pairs_dev)
         print("Bleu score at {} iteration = {}".format(epoch, blue_score))
         experiment.log_metric("Bleu score", blue_score)
-        
+
     eca = 0
     dca = 0
 
 
-        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))  
+torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))  
         
