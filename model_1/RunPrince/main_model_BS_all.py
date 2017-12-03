@@ -8,7 +8,6 @@ import random
 import time
 import datetime
 import math
-
 import nltk
 import torch
 import torch.nn as nn
@@ -17,7 +16,6 @@ from torch.autograd import Variable
 from torch import optim
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_packed_sequence, pack_padded_sequence
-
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
@@ -28,43 +26,49 @@ import argparse
 from collections import Counter
 
 import os
-
+import subprocess
 
 
 
 ######## File params ########
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--MIN_LENGTH', type=int, default=5, help='Min Length of sequence (Input side)')
+    parser.add_argument('--MIN_LENGTH', type=int, default=1, help='Min Length of sequence (Input side)')
     parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence (Input side)')
-    parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=5, help='Min Length of sequence (Output side)')
+    parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=1, help='Min Length of sequence (Output side)')
     parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=200, help='Max Length of sequence (Output side)')
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
     parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
-    parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5, help='Teacher forcing ratio for encoder')
+    # parser.add_argument('--teacher_forcing_ratio', type=float, default=1, help='Teacher forcing ratio for encoder')
     parser.add_argument('--hidden_size', type=int, default=1024, help='Size of hidden layer')
-    parser.add_argument('--n_epochs', type=int, default=50000, help='Number of single iterations through the data')
+    parser.add_argument('--n_epochs', type=int, default=20, help='Number of single iterations through the data')
     parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate (for both, encoder and decoder)')
     parser.add_argument('--n_layers', type=int, default=2, help='Number of layers (for both, encoder and decoder)')
     parser.add_argument('--dropout', type=float, default=0.1, help='Dropout (%) in the decoder')
     parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
     parser.add_argument('--main_data_dir', type=str, default= "/scratch/eff254/NLP/Data/Model_ready", help='Directory where data is saved (in folders tain/dev/test)')
-    parser.add_argument('--out_dir', type=str, default="", help="Directory to save the models state dict (No default)")
+    parser.add_argument('--out_dir', type=str, default="checkpoints", help="Directory to save the models state dict (No default)")
+    parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation/", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
     parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
     parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
     parser.add_argument('--clip', type=int, default=1, help="Clipping the gradients")
-    parser.add_argument('--batch_size', type=int, default=32, help="Size of a batch")
-    parser.add_argument('--min_count_trim_output', type=int, default=5, help="trim infrequent output words")
-    parser.add_argument('--min_count_trim_input', type=int, default=5, help="trim infrequent output words")
-    parser.add_argument('--save_every', type=int, default=500, help='Checkpoint model after number of iters')
+    parser.add_argument('--batch_size', type=int, default=128, help="Size of a batch")
+    parser.add_argument('--min_count_trim_output', type=int, default=2, help="trim infrequent output words")
+    parser.add_argument('--min_count_trim_input', type=int, default=2, help="trim infrequent input words")
+    parser.add_argument('--save_every', type=int, default=50, help='Checkpoint model after number of iters')
     parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
-    parser.add_argument('--eval_every', type=int, default=5, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--eval_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
     parser.add_argument('--plot_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--scheduled_sampling_k', type=int, default=3000, help='scheduled sampling parameter for teacher forcing, \
+        based on inverse sigmoid decay')
+    parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
 
     opt = parser.parse_args()
     print(opt)
 
+    if opt.experiment is None:
+        opt.experiment = 'MICA_experiment'
 
     ######## Comet ML ########
     #experiment = comet_mirror("Experiment2")
@@ -79,6 +83,8 @@ def parse_args():
 
 
 opt, target_char , experiment = parse_args()
+os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
+
 
 
 
@@ -122,8 +128,6 @@ def masked_cross_entropy(logits, target, length):
 ####################################
 # 2. Languages classes and imports #
 ####################################
-
-
 PAD_token = 0
 SOS_token = 1
 EOS_token = 2
@@ -190,14 +194,15 @@ def normalize_string(s):
 """
 
 class Lang(object):
+    
     def __init__(self, name):
         self.name = name
         self.trimmed = False
         self.__word2idx = {}
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:'<UNK>'}        
+        self.n_words = 4 # Count default tokens       
         self.word2count = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
-        self.n_words = 3 # Count default tokens
-
+        
     def index_words(self, sentence):
         for word in sentence.split(' '):
             self.index_word(word)
@@ -228,9 +233,8 @@ class Lang(object):
 
         # Reinitialize dictionaries
         self.__word2idx = {}
-        self.word2count = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS"}
-        self.n_words = 3 # Count default tokens
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:'<UNK>'}
+        self.n_words = 4 # Count default tokens
 
         for word in keep_words:
             self.index_word(word)
@@ -253,9 +257,9 @@ class Tokenizer(Lang):
         self.__word2idx = {}
         if os.path.isfile(vocab_file):
             self.load_vocab(vocab_file)
-        self.n_words = 3
+        self.n_words = 4
         self.trimmed = False
-        self.index2word = {0: "PAD_TOKEN", 1: "SOS_TOKEN", 2: "EOS_TOKEN"}
+        self.index2word = {0: "PAD_TOKEN", 1: "SOS_TOKEN", 2: "EOS_TOKEN", 3:'<UNK>'}
 
 
     @property
@@ -369,6 +373,53 @@ class CharTokenizer(Tokenizer):
     
     
     
+'''
+def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
+               term="txt", reverse=False, char_output=False):
+    print("Reading lines...")
+    # Read the file and split into lines
+    # Attach the path here for the source and target language dataset
+    if set_type == "train":
+        filename = '%s/train/%s-%s.%s' % (path, lang1, lang2, term)
+    elif set_type == "dev":
+        filename = '%s/dev/%s-%s.%s' % (path, lang1, lang2, term)
+    elif set_type == "valid":
+        filename = '%s/dev/%s-%s.%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2010":
+        filename = '%s/test/%s-%s.tst2010-%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2011":
+        filename = '%s/test/%s-%s.tst2011-%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2012":
+        filename = '%s/test/%s-%s.tst2012-%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2013":
+        filename = '%s/test/%s-%s.tst2013-%s' % (path, lang1, lang2, term)
+    elif set_type == "tst2014":
+        filename = '%s/test/%s-%s.tst2014-%s' % (path, lang1, lang2, term)
+    else:
+        raise ValueError("set_type not found. Check data folder options")
+
+    # lines contains the data in form of a list
+    lines = open(filename).read().strip().split('\n')
+    # Split every line into pairs
+    if normalize == True:
+        pairs = [[normalize_string(s) for s in l.split('\t')] for l in lines]
+    else:
+        pairs = [[s for s in l.split('\t')] for l in lines]
+    # Reverse pairs, make Lang instances
+    if reverse:
+        pairs = [list(reversed(p)) for p in pairs]
+        input_lang = Lang(lang2)
+        output_lang = Lang(lang1)
+    else:
+        input_lang = Lang(lang1)
+        if char_output:
+            output_lang = CharTokenizer(vocab_file='')
+        else:
+            output_lang = Lang(lang2)
+
+    return input_lang, output_lang, pairs
+'''    
+    
 
 def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
                term="txt", reverse=False, char_output=False):
@@ -416,7 +467,6 @@ def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
     return input_lang, output_lang, pairs
 
 
-
 """
 def filter_pairs(pairs, MIN_LENGTH, MAX_LENGTH):
     filtered_pairs = []
@@ -462,7 +512,7 @@ def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
 # MD edit
 def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
                  min_length_target, max_length_target, set_type='train', do_filter=True, normalize=False,
-                 reverse=False, path='.', term='txt', char_output=False):
+                 reverse=False, path='.', term=opt.model_type, char_output=False):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
     input_lang, output_lang, pairs = read_langs(lang1_name, 
@@ -517,7 +567,7 @@ def indexes_from_sentence(lang, sentence):
 
 # Pad a with the PAD symbol
 def pad_seq(seq, max_length):
-    seq += [PAD_token for i in range(max_length - len(seq))]
+    seq += [PAD_TOKEN for i in range(max_length - len(seq))]
     return seq
 
 
@@ -525,7 +575,6 @@ def pad_seq(seq, max_length):
 def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, max_length_input, max_length_output, char_output=False):
     input_seqs = []
     target_seqs = []
-    print("here 1")
     # Choose random pairs
     for i in range(batch_size):
         pair = random.choice(pairs)
@@ -549,7 +598,6 @@ def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, max_lengt
     if opt.USE_CUDA:
         input_var = input_var.cuda()
         target_var = target_var.cuda()
-    print("here 2 ")
     return input_var, input_lengths, target_var, target_lengths
 
 # def random_batch(USE_CUDA, batch_size, pairs, input_lang, output_lang, max_length_input, max_length_output, char_output=False):
@@ -596,7 +644,8 @@ class EncoderRNN(nn.Module):
 
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
-
+       
+        self.init_weights()
 
     def forward(self, input_seqs, input_lengths, hidden=None): # hidden vector starts with zero (a guess!)
 
@@ -609,6 +658,51 @@ class EncoderRNN(nn.Module):
         outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] # Sum bidirectional outputs
         return outputs, hidden
 
+    def init_weights(self):
+        
+        initrange = 0.1
+        init_vars = [self.embedding]
+        
+        for var in init_vars:
+            var.weight.data.uniform_(-initrange, initrange)   
+
+###################################
+# 3. Main model encoder - decoder #
+###################################
+
+class EncoderRNN(nn.Module):
+    def __init__(self, input_size, hidden_size, n_layers=1, dropout=0.1):
+        super(EncoderRNN, self).__init__()
+
+        self.input_size = input_size #no of words in the input Language
+        self.hidden_size = hidden_size
+        self.n_layers = n_layers
+        self.dropout = dropout
+
+        self.embedding = nn.Embedding(input_size, hidden_size)
+        self.gru = nn.GRU(hidden_size, hidden_size, n_layers, dropout=self.dropout, bidirectional=True)
+       
+        self.init_weights()
+
+    def forward(self, input_seqs, input_lengths, hidden=None): # hidden vector starts with zero (a guess!)
+
+        # Note: we run this all at once (over multiple batches of multiple sequences)
+        embedded = self.embedding(input_seqs) # size = (max_length, batch_size, embed_size). NOTE: embed_size = hidden size here
+        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, input_lengths) # size = (max_length * batch_size, embed_size)
+
+        outputs, hidden = self.gru(packed, hidden) # outputs are supposed to be probability distribution right?
+        outputs, output_lengths = torch.nn.utils.rnn.pad_packed_sequence(outputs) # unpack (back to padded)
+        outputs = outputs[:, :, :self.hidden_size] + outputs[:, : ,self.hidden_size:] # Sum bidirectional outputs
+        return outputs, hidden
+
+    def init_weights(self):
+        
+        initrange = 0.1
+        init_vars = [self.embedding]
+        
+        for var in init_vars:
+            var.weight.data.uniform_(-initrange, initrange)   
+
 class Attn(nn.Module):
     def __init__(self, method, hidden_size):
         super(Attn, self).__init__()
@@ -618,10 +712,11 @@ class Attn(nn.Module):
 
         if self.method == 'general':
             self.attn = nn.Linear(self.hidden_size, hidden_size)
-
+            self.init_weights()
         elif self.method == 'concat':
             self.attn = nn.Linear(self.hidden_size * 2, hidden_size)
             self.v = nn.Parameter(torch.FloatTensor(1, hidden_size))
+            self.init_weights()
 
     def forward(self, hidden, encoder_outputs):
         max_len = encoder_outputs.size(0)
@@ -658,6 +753,17 @@ class Attn(nn.Module):
             energy = (self.v.squeeze(0)).dot(energy)
             return energy
 
+    def init_weights(self):
+        
+        initrange = 0.1
+        init_vars = [self.attn]
+        lin_layers = [self.attn]
+        
+        for var in init_vars:
+            var.weight.data.uniform_(-initrange, initrange)
+            if var in lin_layers:
+                var.bias.data.fill_(0)        
+
 ###############################
 #  BAHDANAU_ATTN_DECODER_RNN  #
 ###############################
@@ -684,6 +790,8 @@ class BahdanauAttnDecoderRNN(nn.Module):
         # self.out = nn.Linear(hidden_size * 2, output_size) # use of linear layer ?
         self.out = nn.Linear(hidden_size, output_size)
 
+        self.init_weights()
+
     def forward(self, word_input, last_hidden, encoder_outputs):
 
         # Get the embedding of the current input word (last output word)
@@ -705,6 +813,17 @@ class BahdanauAttnDecoderRNN(nn.Module):
         # output = F.log_softmax(self.out(torch.cat((output, context.squeeze(0)), 1)))
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights
+
+    def init_weights(self):
+        
+        initrange = 0.1
+        init_vars = [self.embedding, self.out]
+        lin_layers = [self.out]
+        
+        for var in init_vars:
+            var.weight.data.uniform_(-initrange, initrange)
+            if var in lin_layers:
+                var.bias.data.fill_(0)
 
 #################
 # 4. Evaluation #
@@ -821,6 +940,50 @@ def evaluate_and_show_attention(input_sentence, target_sentence=None):
     print('<', output_sentence)
     #print("BLUE SCORE IS:", bleu_score)
 
+def eval_single(string):
+    
+    words, tensor = evaluate(string)
+    words = ' '.join(words)
+    words = re.sub('EOS', '', words)
+    return(words)
+
+def evaluate_list_pairs(list_strings):
+    
+    output = [eval_single(x[0]) for x in list_strings]
+    
+    return output
+
+def export_as_list(original, translations): 
+    
+    with open(opt.eval_dir + '/original.txt', 'w') as original_file:
+        for sentence in original:
+            original_file.write(sentence + "\n")
+    
+    
+    with open(opt.eval_dir + '/translations.txt', 'w') as translations_file:
+        for sentence in translations:
+            translations_file.write(sentence + "\n")
+        
+def run_perl(): 
+    
+    ''' Assumes the multi-bleu.perl is in opt.eval_dir
+        Assumes you exported files with names in export_as_list()'''
+    
+    cmd = "%s %s < %s" % (opt.eval_dir + "./multi-bleu.perl", opt.eval_dir + 'original.txt', opt.eval_dir + 'translations.txt')
+    bleu_output = subprocess.check_output(cmd, shell=True)
+    m = re.search("BLEU = (.+?),", str(bleu_output))
+    bleu_score = float(m.group(1))
+    
+    return bleu_score
+    
+def multi_blue_dev(dev_pairs):
+    
+    prediction = evaluate_list_pairs(dev_pairs)
+    target_eval = [x[1] for x in dev_pairs]    
+    export_as_list(target_eval, prediction)
+    blue = run_perl()
+    return blue
+
 ###############################
 # 5. Training & training loop #
 ###############################
@@ -854,33 +1017,52 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
 
     # Prepare input and output variables
     decoder_input = Variable(torch.LongTensor([SOS_token] * opt.batch_size))
+    decoder_input = decoder_input.cuda() if opt.USE_CUDA else decoder_input
     decoder_hidden = encoder_hidden[:decoder.n_layers] # Use last (forward) hidden state from encoder
-
+        
     max_target_length = max(target_lengths)
     all_decoder_outputs = Variable(torch.zeros(max_target_length, opt.batch_size, decoder.output_size))
+    all_decoder_outputs = all_decoder_outputs.cuda() if opt.USE_CUDA else all_decoder_outputs
 
-    # Move new Variables to CUDA
-    if opt.USE_CUDA:
-        decoder_input = decoder_input.cuda()
-        all_decoder_outputs = all_decoder_outputs.cuda()
+    # teacher forcing ratio implemented with inverse sigmoid decay
+    # ref: https://arxiv.org/pdf/1506.03099.pdf
+    teacher_forcing_ratio = opt.scheduled_sampling_k/(opt.scheduled_sampling_k+np.exp(epoch/opt.scheduled_sampling_k))
+
+    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
     # Run through decoder one time step at a time
-    for t in range(max_target_length):
-        decoder_output, decoder_hidden, decoder_attn = decoder(
-            decoder_input, decoder_hidden, encoder_outputs
-        )
+    if use_teacher_forcing:
+        for t in range(max_target_length):
+            decoder_output, decoder_hidden, decoder_attn = decoder(
+                decoder_input, decoder_hidden, encoder_outputs
+            )
 
-        all_decoder_outputs[t] = decoder_output
-        decoder_input = target_batches[t] # Next input is current target
+            all_decoder_outputs[t] = decoder_output
+            decoder_input = target_batches[t] # Next input is current target
 
+    else:
+        for di in range(max_target_length):
+            decoder_output, decoder_hidden, decoder_attn = decoder(
+                decoder_input, decoder_hidden, encoder_outputs)
+            topv, topi = decoder_output.data.topk(1)
+            ni = topi[0][0]
+
+            decoder_input = Variable(torch.LongTensor([ni]*opt.batch_size))
+            decoder_input = decoder_input.cuda() if opt.USE_CUDA else decoder_input
+            # record outputs for backprop
+            all_decoder_outputs[di] = decoder_output
+            if ni == EOS_token:
+                break
+
+            
     # Loss calculation and backpropagation
     loss = masked_cross_entropy(
         all_decoder_outputs.transpose(0, 1).contiguous(), # -> batch x seq
         target_batches.transpose(0, 1).contiguous(), # -> batch x seq
         target_lengths
     )
+   
     loss.backward()
-    print("here")
     # Clip gradient norms
     ec = torch.nn.utils.clip_grad_norm(encoder.parameters(), opt.clip)
     dc = torch.nn.utils.clip_grad_norm(decoder.parameters(), opt.clip)
@@ -913,44 +1095,49 @@ input_lang, output_lang, pairs = prepare_data(opt.lang1,
                                               char_output=target_char
                                              )
 
+
 # TRIMMING DATA:
 
 input_lang.trim(min_count=opt.min_count_trim_input)
 output_lang.trim(min_count=opt.min_count_trim_output)
 
 
+def trim_pairs(pairs, char=False):
+    for i, pair in enumerate(pairs):
+        pairs[i][1] = pairs[i][1].lower()
 
-def trim_pairs(pairs,input_lang,output_lang, char=False):
-    keep_pairs = []
-    for pair in pairs:
-        input_sentence = pair[0]
-        output_sentence = pair[1].lower()
-        keep_input = True
-        keep_output = True
-
-        for word in input_sentence.split(' '):
+        for word in pair[0].split(' '):
             if word not in input_lang.word2count:
-                keep_input = False
-                break
+                pairs[i][0] = re.sub(word, '<UNK>', pair[0])
+                
         if not char:
-            for word in output_sentence.split(' '):
+            for word in pair[1].split(' '):
                 if word not in output_lang.word2count:
-                    keep_output = False
-                    break            
-        else:
-            for word in list(output_sentence):
-                if word not in dict(output_lang.vocab) and word != " ":
-                    keep_output = False
+                    pairs[i][1] = re.sub(word, '<UNK>', pair[1]) 
                     break
+        else:
+            for word in list(pair[1]):
+                if word not in dict(output_lang.vocab) and word != " ":
+                    pairs[i][1] = re.sub(word, '<UNK>', pair[1])   
 
+    print("Total number of sentence pairs: %d." %len(pairs))
+    return pairs
 
-        # Remove if pair doesn't match input and output conditions
-        if keep_input and keep_output:
-            keep_pairs.append(pair)
-    print("Trimmed from %d pairs to %d, %.4f of total" % (len(pairs), len(keep_pairs), len(keep_pairs) / len(pairs)))
-    return keep_pairs
+pairs = trim_pairs(pairs, char=target_char)
 
-pairs = trim_pairs(pairs,input_lang,output_lang, char=target_char)
+input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1,
+                                              opt.lang2,
+                                              do_filter=True,
+                                              min_length_input=opt.MIN_LENGTH, 
+                                              max_length_input=opt.MAX_LENGTH,
+                                              min_length_target=opt.MIN_LENGTH_TARGET,
+                                              max_length_target=opt.MAX_LENGTH_TARGET, 
+                                              normalize=False, 
+                                              reverse=False, 
+                                              path=opt.main_data_dir, 
+                                              term=opt.model_type,
+                                              char_output=target_char,
+                                              set_type="valid")
 
 
 
@@ -966,11 +1153,10 @@ plot_every = opt.plot_every
 print_every = opt.print_every
 save_every = opt.save_every
 evaluate_every = opt.eval_every # We check the validation in every 10,000 minibatches
-print(opt)
+
 # Initialize models
 encoder = EncoderRNN(input_lang.n_words, opt.hidden_size, opt.n_layers, dropout=opt.dropout)
 decoder = BahdanauAttnDecoderRNN( opt.hidden_size, output_lang.n_words, opt.n_layers, dropout_p=opt.dropout)
-print("here A")
 # Initialize optimizers and criterion
 if opt.optimizer == "Adam":
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=opt.learning_rate)
@@ -982,14 +1168,12 @@ elif opt.optimizer == "SGD":
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=opt.learning_rate)
 else:
     raise ValueError('Optimizer options not found: Select SGD or Adam')
-print("here B ")
 criterion = nn.CrossEntropyLoss()
 
 # Move models to GPU
 if opt.USE_CUDA:
     encoder.cuda()
     decoder.cuda()
-print("here C")
 # Keep track of time elapsed and running averages
 start = time.time()
 plot_losses = []
@@ -1005,7 +1189,6 @@ eca = 0
 dca = 0
 
 while epoch < opt.n_epochs:
-    print(epoch)
     epoch += 1
 
     # Get training data for this cycle
@@ -1017,7 +1200,6 @@ while epoch < opt.n_epochs:
                          opt.MAX_LENGTH, 
                          opt.MAX_LENGTH_TARGET, 
                          char_output=target_char)
-    print("training...")
     # Run the train function
     loss, ec, dc = train(
         input_batches, input_lengths, target_batches, target_lengths,
@@ -1028,10 +1210,8 @@ while epoch < opt.n_epochs:
     plot_loss_total += loss
     eca += ec
     dca += dc
-    print("not training...")
 
     if epoch % print_every == 0:
-        print("printing loss")
         print_loss_avg = print_loss_total / print_every
         experiment.log_metric("Train loss", print_loss_avg)
         print_loss_total = 0
@@ -1040,16 +1220,20 @@ while epoch < opt.n_epochs:
 
     if epoch % evaluate_every == 0:
         evaluate_randomly()
+        blue_score = multi_blue_dev(pairs_dev)
+        print("Bleu score at {} iteration = {}".format(epoch, blue_score))
+        experiment.log_metric("Bleu score", print_loss_avg)
 
     if epoch % save_every == 0:
-        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir))
-        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir))
+        print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
 
     if epoch % plot_every == 0:
         plot_loss_avg = plot_loss_total / plot_every
         plot_losses.append(plot_loss_avg)
         plot_loss_total = 0
-        eca = 0
-        dca = 0
+    eca = 0
+    dca = 0
         
         
