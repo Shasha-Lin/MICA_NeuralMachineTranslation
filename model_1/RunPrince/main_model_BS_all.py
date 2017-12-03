@@ -34,9 +34,9 @@ import subprocess
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--MIN_LENGTH', type=int, default=1, help='Min Length of sequence (Input side)')
-    parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence (Input side)')
+    parser.add_argument('--MAX_LENGTH', type=int, default=40, help='Max Length of sequence (Input side)')
     parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=1, help='Min Length of sequence (Output side)')
-    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=200, help='Max Length of sequence (Output side)')
+    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=40, help='Max Length of sequence (Output side)')
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
     parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
@@ -57,10 +57,10 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=128, help="Size of a batch")
     parser.add_argument('--min_count_trim_output', type=int, default=2, help="trim infrequent output words")
     parser.add_argument('--min_count_trim_input', type=int, default=2, help="trim infrequent input words")
-    parser.add_argument('--save_every', type=int, default=50, help='Checkpoint model after number of iters')
+    parser.add_argument('--save_every', type=int, default=100, help='Checkpoint model after number of iters')
     parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
-    parser.add_argument('--eval_every', type=int, default=10, help='Evaluate translation on one dev pair after number of iters')
-    parser.add_argument('--bleu_every', type=int, default=100, help='Get bleu score number of iters')
+    parser.add_argument('--eval_every', type=int, default=100, help='Evaluate translation on one dev pair after number of iters')
+    parser.add_argument('--bleu_every', type=int, default=200, help='Get bleu score number of iters')
     parser.add_argument('--scheduled_sampling_k', type=int, default=3000, help='scheduled sampling parameter for teacher forcing, \
         based on inverse sigmoid decay')
     parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
@@ -1243,7 +1243,13 @@ while epoch < opt.n_epochs:
     eca += ec
     dca += dc
 
-    
+    if epoch % print_every == 0:
+        print_loss_avg = print_loss_total / print_every
+        experiment.log_metric("Train loss", print_loss_avg)
+        print_loss_total = 0
+        print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / opt.n_epochs), epoch, epoch / opt.n_epochs * 100, print_loss_avg)
+        print(print_summary)
+        
     if (epoch+1) % evaluate_every == 0:
         evaluate_randomly()
 
