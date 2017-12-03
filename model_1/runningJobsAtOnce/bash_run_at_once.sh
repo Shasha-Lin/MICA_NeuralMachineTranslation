@@ -3,11 +3,6 @@
 ### code dir contains this file and the file_merger code
 code_dir="/home/ak6201/RunPrince/main_model_BS_all.py"
 
-#for i in {1,2,3,4};
-#do
-#    echo $i
-#done
-
 learning_rate=(0.00045) #0.00012 0.00072 0.00094 0.00032)
 embed_dim=(650) #826 687 609 821)
 dropout=0.3
