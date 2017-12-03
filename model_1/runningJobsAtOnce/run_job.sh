@@ -22,7 +22,8 @@ hidden_size=$5
 kmax=$6
 n_layers=$7
 code_dir=$8
+attention=$9
 
 python3 -m pip install comet_ml --user
 
-python3 -u $code_dir --USE_CUDA --learning_rate $learning_rate --model_type "$model_type" --embed_size $embed_size --hidden_size $hidden_size  --kmax $kmax --main_data_dir "/scratch/eff254/NLP/Data/Model_ready/" --out_dir "/scratch/ak6201/NLP/ModelOutputs/"
+python3 -u ../RunPrince/main_model_BS_all.py $code_dir --USE_CUDA --learning_rate $learning_rate --model_type "$model_type" --attention "$attention" --embed_size $embed_size --hidden_size $hidden_size  --kmax $kmax --main_data_dir "/scratch/eff254/NLP/Data/Model_ready/" --out_dir "/scratch/ak6201/NLP/ModelOutputs/"

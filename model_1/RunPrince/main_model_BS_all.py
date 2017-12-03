@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument('--dropout', type=float, default=0.1, help='Dropout (%) in the decoder')
     parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
     parser.add_argument('--main_data_dir', type=str, default= "/scratch/eff254/NLP/Data/Model_ready", help='Directory where data is saved (in folders tain/dev/test)')
-    parser.add_argument('--out_dir', type=str, default="checkpoints", help="Directory to save the models state dict (No default)")
+    parser.add_argument('--out_dir', type=str, default="./checkpoints", help="Directory to save the models state dict (No default)")
     parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation/", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
     parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
     parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
@@ -85,7 +85,7 @@ def parse_args():
 
 opt, target_char , experiment = parse_args()
 os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
-
+os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
 
 
 
@@ -1024,12 +1024,12 @@ def evaluate_list_pairs(list_strings):
 
 def export_as_list(original, translations): 
     
-    with open(opt.eval_dir + '/original.txt', 'w') as original_file:
+    with open("{}/{}/original.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
         for sentence in original:
             original_file.write(sentence + "\n")
     
     
-    with open(opt.eval_dir + '/translations.txt', 'w') as translations_file:
+    with open("{}/{}/translations.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
         for sentence in translations:
             translations_file.write(sentence + "\n")
         
@@ -1038,7 +1038,8 @@ def run_perl():
     ''' Assumes the multi-bleu.perl is in opt.eval_dir
         Assumes you exported files with names in export_as_list()'''
     
-    cmd = "%s %s < %s" % (opt.eval_dir + "./multi-bleu.perl", opt.eval_dir + 'original.txt', opt.eval_dir + 'translations.txt')
+    cmd = "%s %s < %s" % (opt.eval_dir + "./multi-bleu.perl", opt.eval_dir + opt.experiment + \
+        '/original.txt', opt.eval_dir + opt.experiment + '/translations.txt')
     bleu_output = subprocess.check_output(cmd, shell=True)
     m = re.search("BLEU = (.+?),", str(bleu_output))
     bleu_score = float(m.group(1))
@@ -1283,16 +1284,19 @@ while epoch < opt.n_epochs:
         evaluate_randomly()
 
     if (epoch+1) % save_every == 0:
-        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
-        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))
+        print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         
     if (epoch+1) % opt.bleu_every == 0:
         blue_score = multi_blue_dev(pairs_dev)
         print("Bleu score at {} iteration = {}".format(epoch, blue_score))
         experiment.log_metric("Bleu score", blue_score)
+        
     eca = 0
     dca = 0
 
-torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
-torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))   
+
+        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))  
         
