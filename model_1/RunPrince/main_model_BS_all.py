@@ -1243,13 +1243,13 @@ while epoch < opt.n_epochs:
     eca += ec
     dca += dc
 
-    if epoch % print_every == 0:
+    if (epoch+1) % print_every == 0:
         print_loss_avg = print_loss_total / print_every
         experiment.log_metric("Train loss", print_loss_avg)
         print_loss_total = 0
         print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / opt.n_epochs), epoch, epoch / opt.n_epochs * 100, print_loss_avg)
         print(print_summary)
-        
+
     if (epoch+1) % evaluate_every == 0:
         evaluate_randomly()
 
