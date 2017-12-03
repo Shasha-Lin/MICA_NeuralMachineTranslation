@@ -1116,7 +1116,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
             topv, topi = decoder_output.data.topk(1)
             ni = topi[:, 0]
 
-            decoder_input = Variable(torch.LongTensor([ni]))
+            decoder_input = Variable(ni)
             decoder_input = decoder_input.cuda() if opt.USE_CUDA else decoder_input
             # record outputs for backprop
             all_decoder_outputs[di] = decoder_output
