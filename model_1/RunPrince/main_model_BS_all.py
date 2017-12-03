@@ -59,7 +59,8 @@ def parse_args():
     parser.add_argument('--min_count_trim_input', type=int, default=2, help="trim infrequent input words")
     parser.add_argument('--save_every', type=int, default=50, help='Checkpoint model after number of iters')
     parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
-    parser.add_argument('--eval_every', type=int, default=10, help='Evaluate translation on dev pairs after number of iters')
+    parser.add_argument('--eval_every', type=int, default=10, help='Evaluate translation on one dev pair after number of iters')
+    parser.add_argument('--bleu_every', type=int, default=100, help='Get bleu score number of iters')
     parser.add_argument('--scheduled_sampling_k', type=int, default=3000, help='scheduled sampling parameter for teacher forcing, \
         based on inverse sigmoid decay')
     parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
@@ -1279,23 +1280,21 @@ while epoch < opt.n_epochs:
     eca += ec
     dca += dc
 
-    if epoch % print_every == 0:
-        print_loss_avg = print_loss_total / print_every
-        experiment.log_metric("Train loss", print_loss_avg)
-        print_loss_total = 0
-        print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / opt.n_epochs), epoch, epoch / opt.n_epochs * 100, print_loss_avg)
-        print(print_summary)
-
-    if epoch % evaluate_every == 0:
+    
+    if (epoch+1) % evaluate_every == 0:
         evaluate_randomly()
+
+    if (epoch+1) % save_every == 0:
+        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
+        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))
+        
+    if (epoch+1) % opt.bleu_every == 0:
         blue_score = multi_blue_dev(pairs_dev)
         print("Bleu score at {} iteration = {}".format(epoch, blue_score))
         experiment.log_metric("Bleu score", blue_score)
-
-    if epoch % save_every == 0:
-        torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
-        torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))
     eca = 0
     dca = 0
-        
+
+torch.save(encoder.state_dict(), "{}/saved_encoder_{}.pth".format(opt.out_dir, epoch))
+torch.save(decoder.state_dict(), "{}/saved_decoder_{}.pth".format(opt.out_dir, epoch))   
         
