@@ -1114,14 +1114,12 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
             decoder_output, decoder_hidden, decoder_attn = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
             topv, topi = decoder_output.data.topk(1)
-            ni = topi[0][0]
+            ni = topi[:, 0]
 
-            decoder_input = Variable(torch.LongTensor([ni]*opt.batch_size))
+            decoder_input = Variable(torch.LongTensor([ni]))
             decoder_input = decoder_input.cuda() if opt.USE_CUDA else decoder_input
             # record outputs for backprop
             all_decoder_outputs[di] = decoder_output
-            if ni == EOS_token:
-                break
 
             
     # Loss calculation and backpropagation
