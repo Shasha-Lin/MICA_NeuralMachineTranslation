@@ -17,7 +17,6 @@ module load nltk/python3.5/3.2.4 # It is possible that you need to download nltk
 
 model_type=$1
 learning_rate=$2
-teacher_forcing_ratio=$3
 embed_size=$4
 hidden_size=$5
 kmax=$6
@@ -26,4 +25,4 @@ code_dir=$8
 
 python3 -m pip install comet_ml --user
 
-python3 -u $code_dir --USE_CUDA --learning_rate $learning_rate --teacher_forcing_ratio $teacher_forcing_ratio --model_type "$model_type" --embed_size $embed_size --hidden_size $hidden_size  --kmax $kmax --main_data_dir "/scratch/eff254/NLP/Data/Model_ready/" --out_dir "/scratch/ak6201/NLP/ModelOutputs/"
+python3 -u $code_dir --USE_CUDA --learning_rate $learning_rate --model_type "$model_type" --embed_size $embed_size --hidden_size $hidden_size  --kmax $kmax --main_data_dir "/scratch/eff254/NLP/Data/Model_ready/" --out_dir "/scratch/ak6201/NLP/ModelOutputs/"
