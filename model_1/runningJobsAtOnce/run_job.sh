@@ -27,3 +27,4 @@ experiment=$9
 python3 -m pip install comet_ml --user
 
 python3 -u ../RunPrince/main_model_BS_all.py $code_dir --USE_CUDA --learning_rate $learning_rate --model_type "$model_type" --attention "$attention" --embed_size $embed_size --hidden_size $hidden_size  --kmax $kmax --experiment $experiment
+

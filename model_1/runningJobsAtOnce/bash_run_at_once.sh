@@ -4,10 +4,6 @@
 code_dir="/home/sl4964/RunPrince/main_model_BS_all.py"
 model_type="bpe2char"
 
-#for i in {1,2,3,4};
-#do
-#    echo $i
-#done
 
 learning_rate=(0.00045 0.00012 0.00072 0.00094 0.00032)
 embed_dim=(650 826 687 609 821)
