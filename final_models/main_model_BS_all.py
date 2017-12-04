@@ -50,7 +50,7 @@ def parse_args():
     parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
     parser.add_argument('--main_data_dir', type=str, default= "/scratch/eff254/NLP/Data/Model_ready", help='Directory where data is saved (in folders tain/dev/test)')
     parser.add_argument('--out_dir', type=str, default="./checkpoints", help="Directory to save the models state dict (No default)")
-    parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation/", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
+    parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
     parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
     parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
     parser.add_argument('--clip', type=int, default=1, help="Clipping the gradients")
@@ -71,6 +71,10 @@ def parse_args():
     if opt.experiment is None:
         opt.experiment = 'MICA_experiment'
 
+    target_char = (opt.model_type == 'bpe2char')
+    if target_char:
+        opt.MAX_LENGTH_TARGET = 200
+
     ######## Comet ML ########
     #experiment = comet_mirror("Experiment2")
     experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", log_code=True)
@@ -79,13 +83,16 @@ def parse_args():
 
 
     # flag for character encoding
-    target_char = (opt.model_type == 'bpe2char')
+    
     return opt, target_char, experiment
 
 
 opt, target_char , experiment = parse_args()
-os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
-os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
+
+if not os.path.exists('{0}/{1}'.format(opt.out_dir, opt.experiment)):
+    os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
+if not os.path.exists('{0}/{1}'.format(opt.eval_dir, opt.experiment)):
+    os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
 
 
 
@@ -358,7 +365,7 @@ class Tokenizer(Lang):
         # Reinitialize dictionaries
         self.vocab = {}
         self.__word2idx = {}
-        self.n_words = 3 # Count default tokens
+        self.n_words = 4 # Count default tokens
 
         self.get_vocab(keep_words, from_filenames=False)
 
@@ -1002,8 +1009,8 @@ def run_perl():
     ''' Assumes the multi-bleu.perl is in opt.eval_dir
         Assumes you exported files with names in export_as_list()'''
     
-    cmd = "%s %s < %s" % (opt.eval_dir + "./multi-bleu.perl", opt.eval_dir + opt.experiment + \
-        '/original.txt', opt.eval_dir + opt.experiment + '/translations.txt')
+    cmd = "%s %s < %s" % (opt.eval_dir + "/./multi-bleu.perl", opt.eval_dir + '/' + opt.experiment + \
+        '/original.txt', opt.eval_dir + '/' + opt.experiment + '/translations.txt')
     bleu_output = subprocess.check_output(cmd, shell=True)
     m = re.search("BLEU = (.+?),", str(bleu_output))
     bleu_score = float(m.group(1))
