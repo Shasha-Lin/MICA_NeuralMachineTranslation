@@ -7,14 +7,14 @@ code_dir="/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/MICA_Ne
 data_dir="/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess"
 
 ### folder to contain output folders (Model1_ready or Model2_ready)
-data_output_folder="Model2_ready"
+data_output_folder="Molde_ready2"
 
 
 for i in "train" "dev" "valid"
 do
         #bpe2char
         python "$code_dir"/file_merger.py --file1 "$data_dir/"$i".en.tok.bpe" \
-                                  --file2 "$data_dir/"$i".fr.tok" \
+                                  --file2 "$data_dir/"$i".fr.norm.char" \
                                   --outdir "$data_dir/$data_output_folder/"$i \
                                   --lang1 "en" \
                                   --lang2 "fr" \
@@ -41,7 +41,7 @@ for i in "tst2010" "tst2011" "tst2012" "tst2013" "tst2014"
 do
         #bpe2char
         python "$code_dir"/file_merger.py --file1 "$data_dir/"$i".en.tok.bpe" \
-                                  --file2 "$data_dir/"$i".fr.tok" \
+                                  --file2 "$data_dir/"$i".fr.norm.char" \
                                   --outdir "$data_dir/$data_output_folder/test" \
                                   --lang1 "en" \
                                   --lang2 "fr" \
