@@ -35,7 +35,7 @@ parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=5, help='Min Length
 parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=200, help='Max Length of sequence (Output side)')
 parser.add_argument('--lang1', type=str, default="en", help='Input Language')
 parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
-parser.add_argument('--USE_CUDA', action='store_false', help='IF USE CUDA (Default == False)')
+parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
 parser.add_argument('--hidden_size', type=int, default=1024, help='Size of hidden layer')
 parser.add_argument('--n_epochs', type=int, default=50000, help='Number of single iterations through the data')
 parser.add_argument('--learning_rate', type=float, default=0.0001, help='Learning rate (for both, encoder and decoder)')
