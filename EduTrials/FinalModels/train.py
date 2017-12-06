@@ -43,7 +43,7 @@ parser.add_argument('--n_layers', type=int, default=2, help='Number of layers (f
 parser.add_argument('--dropout', type=float, default=0.1, help='Dropout (%) in the decoder')
 parser.add_argument('--model_type', type=str, default="bpe2bpe", help='Model type (and ending of files)')
 parser.add_argument('--main_data_dir', type=str, default= "/scratch/eff254/NLP/Data/Model_ready/", help='Directory where data is saved (in folders tain/dev/test)')
-parser.add_argument('--out_dir', type=str, default="/scratch/eff254/NLP/ModelOutputs/", help="Directory to save the models state dict (No default)")
+parser.add_argument('--out_dir', type=str, default="./checkpoints", help="Directory to save the models state dict (No default)")
 parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
 parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
 parser.add_argument('--clip', type=int, default=1, help="Clipping the gradients")
