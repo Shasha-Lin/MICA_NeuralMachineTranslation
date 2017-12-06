@@ -55,7 +55,8 @@ parser.add_argument('--experiment', type=str, default="MICA", help="Experiment n
 opt = parser.parse_args("")
 print(opt)
 
-experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", project_name='MICA Final', log_code=True)
+# experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", project_name='MICA Final', log_code=True)
+experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", log_code=True) # Project name doesn't seem to be working :-( 
 hyper_params = vars(opt)
 experiment.log_multiple_params(hyper_params)
 
@@ -756,10 +757,10 @@ pairs = keep_pairs
 ####################
 
 epoch = 0
-print_every = 2
-save_every = 10000000
-evaluate_every = 50 # Check visually the validation in every X minibatches
-bleu_every = 100
+print_every = 10
+save_every = 200
+evaluate_every = 100 # Check visually the validation in every X minibatches
+bleu_every = 200
 
 # Initialize models
 encoder = EncoderRNN(input_lang.n_words, opt.hidden_size, opt.n_layers, dropout=opt.dropout)
