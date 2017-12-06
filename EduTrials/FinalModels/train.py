@@ -25,6 +25,9 @@ import torchvision
 from PIL import Image
 import argparse
 
+import os
+import subprocess 
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--MIN_LENGTH', type=int, default=5, help='Min Length of sequence (Input side)')
 parser.add_argument('--MAX_LENGTH', type=int, default=200, help='Max Length of sequence (Input side)')
