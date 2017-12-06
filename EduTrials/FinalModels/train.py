@@ -52,7 +52,7 @@ parser.add_argument('--experiment', type=str, default="MICA", help="Experiment n
 opt = parser.parse_args("")
 print(opt)
 
-experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", log_code=True)
+experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", project_name='MICA Final', log_code=True)
 hyper_params = vars(opt)
 experiment.log_multiple_params(hyper_params)
 
