@@ -34,9 +34,9 @@ import subprocess
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--MIN_LENGTH', type=int, default=1, help='Min Length of sequence (Input side)')
-    parser.add_argument('--MAX_LENGTH', type=int, default=40, help='Max Length of sequence (Input side)')
+    parser.add_argument('--MAX_LENGTH', type=int, default=140, help='Max Length of sequence (Input side)')
     parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=1, help='Min Length of sequence (Output side)')
-    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=40, help='Max Length of sequence (Output side)')
+    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=140, help='Max Length of sequence (Output side)')
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
     parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
@@ -50,30 +50,29 @@ def parse_args():
     parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
     parser.add_argument('--main_data_dir', type=str, default= "/scratch/eff254/NLP/Data/Model_ready", help='Directory where data is saved (in folders tain/dev/test)')
     parser.add_argument('--out_dir', type=str, default="./checkpoints", help="Directory to save the models state dict (No default)")
-    parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
+    parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation/", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
     parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
     parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
     parser.add_argument('--clip', type=int, default=1, help="Clipping the gradients")
     parser.add_argument('--batch_size', type=int, default=128, help="Size of a batch")
     parser.add_argument('--min_count_trim_output', type=int, default=2, help="trim infrequent output words")
     parser.add_argument('--min_count_trim_input', type=int, default=2, help="trim infrequent input words")
-    parser.add_argument('--save_every', type=int, default=100, help='Checkpoint model after number of iters')
+    parser.add_argument('--save_every', type=int, default=25, help='Checkpoint model after number of iters')
     parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
     parser.add_argument('--eval_every', type=int, default=100, help='Evaluate translation on one dev pair after number of iters')
     parser.add_argument('--bleu_every', type=int, default=200, help='Get bleu score number of iters')
     parser.add_argument('--scheduled_sampling_k', type=int, default=3000, help='scheduled sampling parameter for teacher forcing, \
         based on inverse sigmoid decay')
     parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
+    parser.add_argument('--checkpoint_enc', type=str, default=None, help="encoder checkpoint")
+    parser.add_argument('--checkpoint_dec', type=str, default=None, help="decoder checkpoint")
+    parser.add_argument('--epoch_continue', type=int, default=None, help="epoch # to continue training from")
 
     opt = parser.parse_args()
     print(opt)
 
     if opt.experiment is None:
         opt.experiment = 'MICA_experiment'
-
-    target_char = (opt.model_type == 'bpe2char')
-    if target_char:
-        opt.MAX_LENGTH_TARGET = 200
 
     ######## Comet ML ########
     #experiment = comet_mirror("Experiment2")
@@ -83,16 +82,13 @@ def parse_args():
 
 
     # flag for character encoding
-    
+    target_char = (opt.model_type == 'bpe2char')
     return opt, target_char, experiment
 
 
 opt, target_char , experiment = parse_args()
-
-if not os.path.exists('{0}/{1}'.format(opt.out_dir, opt.experiment)):
-    os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
-if not os.path.exists('{0}/{1}'.format(opt.eval_dir, opt.experiment)):
-    os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
+os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
+os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
 
 
 
@@ -365,7 +361,7 @@ class Tokenizer(Lang):
         # Reinitialize dictionaries
         self.vocab = {}
         self.__word2idx = {}
-        self.n_words = 4 # Count default tokens
+        self.n_words = 3 # Count default tokens
 
         self.get_vocab(keep_words, from_filenames=False)
 
@@ -984,7 +980,7 @@ def eval_single(string):
     
     words, tensor = evaluate(string)
     words = ' '.join(words)
-    words = re.sub('<EOS>', '', words)
+    words = re.sub('EOS', '', words)
     return(words)
 
 def evaluate_list_pairs(list_strings):
@@ -1009,8 +1005,8 @@ def run_perl():
     ''' Assumes the multi-bleu.perl is in opt.eval_dir
         Assumes you exported files with names in export_as_list()'''
     
-    cmd = "%s %s < %s" % (opt.eval_dir + "/./multi-bleu.perl", opt.eval_dir + '/' + opt.experiment + \
-        '/original.txt', opt.eval_dir + '/' + opt.experiment + '/translations.txt')
+    cmd = "%s %s < %s" % (opt.eval_dir + "./multi-bleu.perl", opt.eval_dir + opt.experiment + \
+        '/original.txt', opt.eval_dir + opt.experiment + '/translations.txt')
     bleu_output = subprocess.check_output(cmd, shell=True)
     m = re.search("BLEU = (.+?),", str(bleu_output))
     bleu_score = float(m.group(1))
@@ -1221,6 +1217,23 @@ start = time.time()
 print_loss_total = 0 # Reset every print_every
 
 
+if opt.checkpoint_enc is not None:
+    print("Loading encoder state dict: {}".format(opt.checkpoint_enc))
+    enc_state = torch.load(opt.checkpoint_enc)
+    encoder.load_state_dict(enc_state)
+
+if opt.checkpoint_dec is not None:
+    print("Loading decoder state dict: {}".format(opt.checkpoint_dec))
+    dec_state = torch.load(opt.checkpoint_dec)
+    decoder.load_state_dict(dec_state)
+    
+if opt.epoch_continue is not None:
+    epoch = opt.epoch_continue
+    print("Continuing training from epoch: {}".format(epoch))
+
+
+
+
 ###############
 # 8. Modeling #
 ###############
@@ -1264,6 +1277,9 @@ while epoch < opt.n_epochs:
         print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
         torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(encoder_optimizer.state_dict(), "{}/{}/saved_encoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder_optimizer.state_dict(), "{}/{}/saved_decoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+
         
     if (epoch+1) % opt.bleu_every == 0:
         blue_score = multi_blue_dev(pairs_dev)
