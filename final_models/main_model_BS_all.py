@@ -977,7 +977,7 @@ def eval_single(string):
     
     words, tensor = evaluate(string)
     words = ' '.join(words)
-    words = re.sub('EOS', '', words)
+    words = re.sub('<EOS>', '', words)
     return(words)
 
 def evaluate_list_pairs(list_strings):
