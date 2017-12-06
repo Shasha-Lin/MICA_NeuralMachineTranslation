@@ -52,7 +52,7 @@ parser.add_argument('--attention', type=str, default='Bahdanau', help='attention
 parser.add_argument('--scheduled_sampling_k', type=int, default=3000, help='scheduled sampling parameter for teacher forcing, based on inverse sigmoid decay')
 parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation/", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
 parser.add_argument('--experiment', type=str, default="MICA", help="Experiment name (for comet_ml purposes)")
-opt = parser.parse_args("")
+opt = parser.parse_args()
 print(opt)
 
 # experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", project_name='MICA Final', log_code=True)
