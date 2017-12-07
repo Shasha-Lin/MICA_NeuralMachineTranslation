@@ -27,6 +27,7 @@ import argparse
 
 import os
 import subprocess 
+import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--MIN_LENGTH', type=int, default=5, help='Min Length of sequence (Input side)')
@@ -62,6 +63,9 @@ experiment.log_multiple_params(hyper_params)
 
 os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
 os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
+
+# Save the OPT objet: 
+pickle.dump(opt, open("{}/{}/model_opt.pth".format(opt.out_dir, opt.experiment), "wb"  ) )
 
 ###########################
 #    1. Loss function     #
@@ -836,8 +840,12 @@ while epoch < opt.n_epochs:
         print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
         torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         
     if (epoch) % bleu_every == 0:
         blue_score = multi_blue_dev(pairs_dev)
         print("Bleu score at {} iteration = {}".format(epoch, blue_score))
         experiment.log_metric("Bleu score", blue_score) 
+
+
