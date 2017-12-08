@@ -979,14 +979,81 @@ def evaluate_and_show_attention(input_sentence, target_sentence=None):
 
 def eval_single(string):
     
+#     words, tensor = evaluate(string)
+#     words = ' '.join(words)
+#     words = re.sub('EOS', '', words)
+#     return(words)
+
+# def evaluate_list_pairs(list_strings):
+    
+#     output = [eval_single(x[0]) for x in list_strings]
+    
+#     return output
+
+# def export_as_list(original, translations): 
+    
+#     with open("{}/{}/original.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
+#         for sentence in original:
+#             original_file.write(sentence + "\n")
+    
+    
+#     with open("{}/{}/translations.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
+#         for sentence in translations:
+#             translations_file.write(sentence + "\n")
+        
+# def run_perl(): 
+    
+#     ''' Assumes the multi-bleu.perl is in opt.eval_dir
+#         Assumes you exported files with names in export_as_list()'''
+    
+#     cmd = "%s %s < %s" % (opt.eval_dir + "./multi-bleu.perl", opt.eval_dir + opt.experiment + \
+#         '/original.txt', opt.eval_dir + opt.experiment + '/translations.txt')
+#     bleu_output = subprocess.check_output(cmd, shell=True)
+#     m = re.search("BLEU = (.+?),", str(bleu_output))
+#     bleu_score = float(m.group(1))
+    
+#     return bleu_score
+    
+# def multi_blue_dev(dev_pairs):
+    
+#     prediction = evaluate_list_pairs(dev_pairs)
+#     target_eval = [x[1] for x in dev_pairs]    
+#     export_as_list(target_eval, prediction)
+#     blue = run_perl()
+#     return blue    
+
+
+## Bleu score updates
+def undo_chars(string): 
+    
+    string = re.sub("   ", "@", string)
+    string = re.sub(" ", "", string)
+    string = re.sub("@", " ", string)
+        
+    return string
+
+def undo_bpe(string): 
+    
+    string = re.sub("@@ ", "", string)
+        
+    return string
+    
+def eval_single(string):
+    
     words, tensor = evaluate(string)
     words = ' '.join(words)
-    words = re.sub('EOS', '', words)
+    words = re.sub('<EOS>', '', words)
+
     return(words)
 
-def evaluate_list_pairs(list_strings):
+def evaluate_list_pairs(list_strings, term=opt.model_type):
     
-    output = [eval_single(x[0]) for x in list_strings]
+    if term == "bpe2bpe":
+        output = [undo_bpe(eval_single(x[0])) for x in list_strings]
+    elif term in ["bpe2char", "bpe2char_2", "bpe2char_3"]:
+        output = [undo_chars(eval_single(x[0])) for x in list_strings]
+    else:
+        output = [eval_single(x[0]) for x in list_strings]
     
     return output
 
@@ -1013,14 +1080,28 @@ def run_perl():
     bleu_score = float(m.group(1))
     
     return bleu_score
+
     
-def multi_blue_dev(dev_pairs):
+def multi_blue_dev(dev_pairs, term=opt.model_type):
     
     prediction = evaluate_list_pairs(dev_pairs)
-    target_eval = [x[1] for x in dev_pairs]    
+    
+    if term == "bpe2bpe":
+        target_eval = [undo_bpe(x[1]) for x in dev_pairs]   
+    elif term in ["bpe2char", "bpe2char_2", "bpe2char_3"]:
+        target_eval = [undo_chars(x[1]) for x in dev_pairs]   
+    else:
+        target_eval = [x[1] for x in dev_pairs] 
+    
     export_as_list(target_eval, prediction)
     blue = run_perl()
     return blue
+
+### END Bleu score updates
+
+
+
+
 
 ###############################
 # 5. Training & training loop #
