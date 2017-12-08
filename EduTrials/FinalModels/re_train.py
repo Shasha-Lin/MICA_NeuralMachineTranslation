@@ -31,7 +31,7 @@ import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--out_dir', type=str, default="/scratch/eff254/NLP/MICA_NeuralMachineTranslation/EduTrials/FinalModels/checkpoints/", help="Directory where the states dicts are saved")
-parser.add_argument('--experiment_name', type=str, default="bpe2bpe_0.0006528_906_10_Luong", help="Original experiment name (As in comet name")
+parser.add_argument('--experiment_name', type=str, default="exp", help="Original experiment name (As in comet name")
 parser.add_argument('--continue_from', type=int, default=None, help='From which epoch continue training? If None, from last detected. default = None')
 opt_rerun = parser.parse_args()
 
