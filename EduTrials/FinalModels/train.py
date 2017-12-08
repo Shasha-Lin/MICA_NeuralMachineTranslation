@@ -27,6 +27,7 @@ import argparse
 
 import os
 import subprocess 
+import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--MIN_LENGTH', type=int, default=5, help='Min Length of sequence (Input side)')
@@ -62,6 +63,9 @@ experiment.log_multiple_params(hyper_params)
 
 os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
 os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
+
+# Save the OPT objet: 
+pickle.dump(opt, open("{}/{}/model_opt.p".format(opt.out_dir, opt.experiment), "wb"  ) )
 
 ###########################
 #    1. Loss function     #
@@ -582,18 +586,38 @@ def evaluate_and_show_attention(input_sentence, target_sentence=None):
     if target_sentence is not None:
         print('=', target_sentence)
     print('<', output_sentence)
-    #print("BLUE SCORE IS:", bleu_score)
+    #print("BLUE SCORE IS:", bleu_score)   
+
+def undo_chars(string): 
+    
+    string = re.sub("   ", "@", string)
+    string = re.sub(" ", "", string)
+    string = re.sub("@", " ", string)
+        
+    return string
+
+def undo_bpe(string): 
+    
+    string = re.sub("@@ ", "", string)
+        
+    return string
     
 def eval_single(string):
     
     words, tensor = evaluate(string)
     words = ' '.join(words)
     words = re.sub('<EOS>', '', words)
+
     return(words)
 
-def evaluate_list_pairs(list_strings):
+def evaluate_list_pairs(list_strings, term=opt.model_type):
     
-    output = [eval_single(x[0]) for x in list_strings]
+    if term == "bpe2bpe":
+        output = [undo_bpe(eval_single(x[0])) for x in list_strings]
+    elif term in ["bpe2char", "bpe2char_2", "bpe2char_3"]:
+        output = [undo_chars(eval_single(x[0])) for x in list_strings]
+    else:
+        output = [eval_single(x[0]) for x in list_strings]
     
     return output
 
@@ -620,11 +644,19 @@ def run_perl():
     bleu_score = float(m.group(1))
     
     return bleu_score
+
     
-def multi_blue_dev(dev_pairs):
+def multi_blue_dev(dev_pairs, term=opt.model_type):
     
     prediction = evaluate_list_pairs(dev_pairs)
-    target_eval = [x[1] for x in dev_pairs]    
+    
+    if term == "bpe2bpe":
+        target_eval = [undo_bpe(x[1]) for x in dev_pairs]   
+    elif term in ["bpe2char", "bpe2char_2", "bpe2char_3"]:
+        target_eval = [undo_chars(x[1]) for x in dev_pairs]   
+    else:
+        target_eval = [x[1] for x in dev_pairs] 
+    
     export_as_list(target_eval, prediction)
     blue = run_perl()
     return blue
@@ -836,8 +868,12 @@ while epoch < opt.n_epochs:
         print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
         torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         
     if (epoch) % bleu_every == 0:
         blue_score = multi_blue_dev(pairs_dev)
         print("Bleu score at {} iteration = {}".format(epoch, blue_score))
         experiment.log_metric("Bleu score", blue_score) 
+
+
