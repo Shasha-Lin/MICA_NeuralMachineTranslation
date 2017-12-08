@@ -67,8 +67,8 @@ def parse_args():
     parser.add_argument('--checkpoint_enc', type=str, default=None, help="encoder checkpoint")
     parser.add_argument('--checkpoint_dec', type=str, default=None, help="decoder checkpoint")
     parser.add_argument('--epoch_continue', type=int, default=None, help="epoch # to continue training from")
-    parser.add_argument('--checkpoint_enc_opt', type=str, default=None, help="encoder checkpoint")
-    parser.add_argument('--checkpoint_dec_opt', type=str, default=None, help="decoder checkpoint")
+    parser.add_argument('--checkpoint_enc_optim', type=str, default=None, help="encoder checkpoint")
+    parser.add_argument('--checkpoint_dec_optim', type=str, default=None, help="decoder checkpoint")
     opt = parser.parse_args()
     print(opt)
 
