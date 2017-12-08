@@ -13,10 +13,10 @@ n_layers=2
 attention=("Bahdanau" "Bahdanau" "Bahdanau" "Bahdanau" "Bahdanau")
 experiment="placeholder"
 underscore="_"
-mdif="_redo_"
-enc_cp="checkpoints/bpe2char_2_0.00087_657_5_Bahdanau/saved_encoder_1399.pth"
-dec_cp="checkpoints/bpe2char_2_0.00087_657_5_Bahdanau/saved_decoder_1399.pth"
-epocs=0
+mdif="_a_"
+enc_cp="checkpoints/bpe2char_2_redo__0.00087_657_5_Bahdanau/saved_encoder_1524.pth"
+dec_cp="checkpoints/bpe2char_2_redo__0.00087_657_5_Bahdanau/saved_decoder_1524.pth"
+epocs=1524
 
 for (( i=0; i<1; i++));
 do

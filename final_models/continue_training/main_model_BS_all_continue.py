@@ -67,7 +67,8 @@ def parse_args():
     parser.add_argument('--checkpoint_enc', type=str, default=None, help="encoder checkpoint")
     parser.add_argument('--checkpoint_dec', type=str, default=None, help="decoder checkpoint")
     parser.add_argument('--epoch_continue', type=int, default=None, help="epoch # to continue training from")
-
+    parser.add_argument('--checkpoint_enc_opt', type=str, default=None, help="encoder checkpoint")
+    parser.add_argument('--checkpoint_dec_opt', type=str, default=None, help="decoder checkpoint")
     opt = parser.parse_args()
     print(opt)
 
@@ -1231,8 +1232,15 @@ if opt.epoch_continue is not None:
     epoch = opt.epoch_continue
     print("Continuing training from epoch: {}".format(epoch))
 
+if opt.checkpoint_enc_optim is not None:
+    print("Loading encoder optim state dict: {}".format(opt.checkpoint_enc_optim))
+    enc_state_optim = torch.load(opt.checkpoint_enc_optim)
+    encoder_optimizer.load_state_dict(enc_state_optim)
 
-
+if opt.checkpoint_dec_optim is not None:
+    print("Loading encoder optim state dict: {}".format(opt.checkpoint_dec_optim))
+    dec_state_optim = torch.load(opt.checkpoint_dec_optim)
+    decoder_optimizer.load_state_dict(dec_state_optim)
 
 ###############
 # 8. Modeling #
