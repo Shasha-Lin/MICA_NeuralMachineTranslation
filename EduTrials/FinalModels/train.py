@@ -65,7 +65,7 @@ os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
 os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
 
 # Save the OPT objet: 
-pickle.dump(opt, open("{}/{}/model_opt.pth".format(opt.out_dir, opt.experiment), "wb"  ) )
+pickle.dump(opt, open("{}/{}/model_opt.p".format(opt.out_dir, opt.experiment), "wb"  ) )
 
 ###########################
 #    1. Loss function     #
