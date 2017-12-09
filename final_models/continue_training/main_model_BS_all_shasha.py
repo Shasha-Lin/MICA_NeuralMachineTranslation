@@ -1280,8 +1280,8 @@ if opt.saved_state:
     # epoch = saved_model['epoch']
     encoder.load_state_dict(saved_model['encoder'])
     decoder.load_state_dict(saved_model['decoder'])
-    encoder_optimizer.load_state_dict(saved_model['encoder_optimzer'])
-    decoder_optimizer.load_state_dict(saved_model['decoder_optimzer'])
+    encoder_optimizer.load_state_dict(saved_model['encoder_optimizer'])
+    decoder_optimizer.load_state_dict(saved_model['decoder_optimizer'])
 
     
 # Keep track of time elapsed and running averages
@@ -1328,7 +1328,7 @@ while epoch < opt.n_epochs:
             print("checkpointing models at epoch {} and iteration {} to folder {}/{}".format(epoch, i, opt.out_dir, opt.experiment))
             model_dict = {'encoder': encoder.state_dict(), 
             'decoder': decoder.state_dict(), 
-            'encoder_optimzer': encoder_optimizer.state_dict(), 
+            'encoder_optimizer': encoder_optimizer.state_dict(), 
             'decoder_optimizer': decoder_optimizer.state_dict(), 
             'epoch': epoch}
 
