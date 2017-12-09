@@ -70,6 +70,8 @@ def parse_args():
     parser.add_argument('--checkpoint_enc_optim', type=str, default=None, help="encoder checkpoint")
     parser.add_argument('--checkpoint_dec_optim', type=str, default=None, help="decoder checkpoint")
     parser.add_argument('--saved_state', type=str, default=None, help="model checkpoint")
+    parser.add_argument('--checkpoint_lang', type=str, default=None, help="lang  checkpoint")
+
     opt = parser.parse_args()
     print(opt)
 
@@ -518,7 +520,7 @@ def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
 # MD edit
 def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
                  min_length_target, max_length_target, set_type='train', do_filter=True, normalize=False,
-                 reverse=False, path='.', term=opt.model_type, char_output=False, existing_languages=opt.saved_state):
+                 reverse=False, path='.', term=opt.model_type, char_output=False, existing_languages=opt.checkpoint_lang):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
     input_lang, output_lang, pairs = read_langs(lang1_name, 
@@ -1219,9 +1221,9 @@ input_lang, output_lang, pairs = prepare_data(opt.lang1,
 
 
 # TRIMMING DATA:
-if opt.saved_state is None:
-    input_lang.trim(min_count=opt.min_count_trim_input)
-    output_lang.trim(min_count=opt.min_count_trim_output)
+#if opt.language_obj is None:
+input_lang.trim(min_count=opt.min_count_trim_input)
+output_lang.trim(min_count=opt.min_count_trim_output)
 
 
 def trim_pairs(pairs, char=False):
@@ -1260,8 +1262,14 @@ input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1,
                                               term=opt.model_type,
                                               char_output=target_char,
                                               set_type="valid")
-
-
+if opt.checkpoint_lang is None:
+    print("saving language obj to: {}.".format("{}/{}/saved_language_obj.pth".format(opt.out_dir, opt.experiment)))
+    language_dict = {"input_lang": input_lang, "output_lang": output_lang}
+    torch.save(language_dict, "{}/{}/saved_language_obj.pth".format(opt.out_dir, opt.experiment))
+else:
+    print("will not overwrite lang obj")
+print("WORD2INDEX DEBUG *****")
+print([output_lang.word2index(x) for x in ['pour', 'refourbir', 'certaines', 'des', 'constructions', 'catastrophiques', 'qui', 'existent', 'en', 'amérique']])
 
 ####################
 # 7. Configuration #
@@ -1312,29 +1320,31 @@ if opt.saved_state is not None:
     decoder_optimizer.load_state_dict(saved_model['decoder_optimizer'])
     
 
-# if opt.checkpoint_enc is not None:
-#     print("Loading encoder state dict: {}".format(opt.checkpoint_enc))
-#     enc_state = torch.load(opt.checkpoint_enc)
-#     encoder.load_state_dict(enc_state)
 
-# if opt.checkpoint_dec is not None:
-#     print("Loading decoder state dict: {}".format(opt.checkpoint_dec))
-#     dec_state = torch.load(opt.checkpoint_dec)
-#     decoder.load_state_dict(dec_state)
     
-# if opt.epoch_continue is not None:
-#     epoch = opt.epoch_continue
-#     print("Continuing training from epoch: {}".format(epoch))
+if opt.checkpoint_enc is not None:
+    print("Loading encoder state dict: {}".format(opt.checkpoint_enc))
+    enc_state = torch.load(opt.checkpoint_enc)
+    encoder.load_state_dict(enc_state)
 
-# if opt.checkpoint_enc_optim is not None:
-#     print("Loading encoder optim state dict: {}".format(opt.checkpoint_enc_optim))
-#     enc_state_optim = torch.load(opt.checkpoint_enc_optim)
-#     encoder_optimizer.load_state_dict(enc_state_optim)
+if opt.checkpoint_dec is not None:
+    print("Loading decoder state dict: {}".format(opt.checkpoint_dec))
+    dec_state = torch.load(opt.checkpoint_dec)
+    decoder.load_state_dict(dec_state)
+    
+if opt.epoch_continue is not None:
+    epoch = opt.epoch_continue
+    print("Continuing training from epoch: {}".format(epoch))
 
-# if opt.checkpoint_dec_optim is not None:
-#     print("Loading encoder optim state dict: {}".format(opt.checkpoint_dec_optim))
-#     dec_state_optim = torch.load(opt.checkpoint_dec_optim)
-#     decoder_optimizer.load_state_dict(dec_state_optim)
+if opt.checkpoint_enc_optim is not None:
+    print("Loading encoder optim state dict: {}".format(opt.checkpoint_enc_optim))
+    enc_state_optim = torch.load(opt.checkpoint_enc_optim)
+    encoder_optimizer.load_state_dict(enc_state_optim)
+
+if opt.checkpoint_dec_optim is not None:
+    print("Loading encoder optim state dict: {}".format(opt.checkpoint_dec_optim))
+    dec_state_optim = torch.load(opt.checkpoint_dec_optim)
+    decoder_optimizer.load_state_dict(dec_state_optim)
 
 ###############
 # 8. Modeling #
@@ -1378,17 +1388,15 @@ while epoch < opt.n_epochs:
 
     if (epoch+1) % save_every == 0:
         print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-        #torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        #torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        #torch.save(encoder_optimizer.state_dict(), "{}/{}/saved_encoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        #torch.save(decoder_optimizer.state_dict(), "{}/{}/saved_decoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(encoder_optimizer.state_dict(), "{}/{}/saved_encoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder_optimizer.state_dict(), "{}/{}/saved_decoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         model_dict = {'encoder': encoder.state_dict(), 
         'decoder': decoder.state_dict(), 
         'encoder_optimizer': encoder_optimizer.state_dict(), 
         'decoder_optimizer': decoder_optimizer.state_dict(), 
-        'epoch': epoch,
-        "input_lang": input_lang,
-        "output_lang": output_lang
+        'epoch': epoch
                      }
 
         torch.save(model_dict, "{}/{}/saved_model_{}.pth".format(opt.out_dir, opt.experiment, epoch))
