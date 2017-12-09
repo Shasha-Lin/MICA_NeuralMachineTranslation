@@ -69,6 +69,7 @@ def parse_args():
     parser.add_argument('--epoch_continue', type=int, default=None, help="epoch # to continue training from")
     parser.add_argument('--checkpoint_enc_optim', type=str, default=None, help="encoder checkpoint")
     parser.add_argument('--checkpoint_dec_optim', type=str, default=None, help="decoder checkpoint")
+    parser.add_argument('--saved_state', type=str, default=None, help="model checkpoint")
     opt = parser.parse_args()
     print(opt)
 
@@ -517,7 +518,7 @@ def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
 # MD edit
 def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
                  min_length_target, max_length_target, set_type='train', do_filter=True, normalize=False,
-                 reverse=False, path='.', term=opt.model_type, char_output=False):
+                 reverse=False, path='.', term=opt.model_type, char_output=False, existing_languages=opt.saved_state):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
     input_lang, output_lang, pairs = read_langs(lang1_name, 
@@ -529,7 +530,13 @@ def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
                                                 char_output=char_output
                                                )
     print("Read %d sentence pairs" % len(pairs))
-
+    
+    if existing_languages is not None:
+        saved_model = torch.load(existing_languages)
+        input_lang = saved_model["input_lang"]
+        output_lang = saved_model["output_lang"]
+    
+    
     if do_filter is True:
         pairs = filterPairs(pairs, min_length_input, min_length_target,
                             max_length_input, max_length_target)
@@ -977,7 +984,7 @@ def evaluate_and_show_attention(input_sentence, target_sentence=None):
     print('<', output_sentence)
     #print("BLUE SCORE IS:", bleu_score)
 
-def eval_single(string):
+#def eval_single(string):
     
 #     words, tensor = evaluate(string)
 #     words = ' '.join(words)
@@ -1025,11 +1032,9 @@ def eval_single(string):
 
 ## Bleu score updates
 def undo_chars(string): 
-    
     string = re.sub("   ", "@", string)
     string = re.sub(" ", "", string)
-    string = re.sub("@", " ", string)
-        
+    string = re.sub("@", " ", string)  
     return string
 
 def undo_bpe(string): 
@@ -1214,9 +1219,9 @@ input_lang, output_lang, pairs = prepare_data(opt.lang1,
 
 
 # TRIMMING DATA:
-
-input_lang.trim(min_count=opt.min_count_trim_input)
-output_lang.trim(min_count=opt.min_count_trim_output)
+if opt.saved_state is None:
+    input_lang.trim(min_count=opt.min_count_trim_input)
+    output_lang.trim(min_count=opt.min_count_trim_output)
 
 
 def trim_pairs(pairs, char=False):
@@ -1298,30 +1303,38 @@ if opt.USE_CUDA:
 start = time.time()
 print_loss_total = 0 # Reset every print_every
 
-
-if opt.checkpoint_enc is not None:
-    print("Loading encoder state dict: {}".format(opt.checkpoint_enc))
-    enc_state = torch.load(opt.checkpoint_enc)
-    encoder.load_state_dict(enc_state)
-
-if opt.checkpoint_dec is not None:
-    print("Loading decoder state dict: {}".format(opt.checkpoint_dec))
-    dec_state = torch.load(opt.checkpoint_dec)
-    decoder.load_state_dict(dec_state)
+if opt.saved_state is not None:
+    print("Loading saved model state {}".format(opt.saved_state))
+    saved_model = torch.load(opt.saved_state)
+    encoder.load_state_dict(saved_model['encoder'])
+    decoder.load_state_dict(saved_model['decoder'])
+    encoder_optimizer.load_state_dict(saved_model['encoder_optimizer'])
+    decoder_optimizer.load_state_dict(saved_model['decoder_optimizer'])
     
-if opt.epoch_continue is not None:
-    epoch = opt.epoch_continue
-    print("Continuing training from epoch: {}".format(epoch))
 
-if opt.checkpoint_enc_optim is not None:
-    print("Loading encoder optim state dict: {}".format(opt.checkpoint_enc_optim))
-    enc_state_optim = torch.load(opt.checkpoint_enc_optim)
-    encoder_optimizer.load_state_dict(enc_state_optim)
+# if opt.checkpoint_enc is not None:
+#     print("Loading encoder state dict: {}".format(opt.checkpoint_enc))
+#     enc_state = torch.load(opt.checkpoint_enc)
+#     encoder.load_state_dict(enc_state)
 
-if opt.checkpoint_dec_optim is not None:
-    print("Loading encoder optim state dict: {}".format(opt.checkpoint_dec_optim))
-    dec_state_optim = torch.load(opt.checkpoint_dec_optim)
-    decoder_optimizer.load_state_dict(dec_state_optim)
+# if opt.checkpoint_dec is not None:
+#     print("Loading decoder state dict: {}".format(opt.checkpoint_dec))
+#     dec_state = torch.load(opt.checkpoint_dec)
+#     decoder.load_state_dict(dec_state)
+    
+# if opt.epoch_continue is not None:
+#     epoch = opt.epoch_continue
+#     print("Continuing training from epoch: {}".format(epoch))
+
+# if opt.checkpoint_enc_optim is not None:
+#     print("Loading encoder optim state dict: {}".format(opt.checkpoint_enc_optim))
+#     enc_state_optim = torch.load(opt.checkpoint_enc_optim)
+#     encoder_optimizer.load_state_dict(enc_state_optim)
+
+# if opt.checkpoint_dec_optim is not None:
+#     print("Loading encoder optim state dict: {}".format(opt.checkpoint_dec_optim))
+#     dec_state_optim = torch.load(opt.checkpoint_dec_optim)
+#     decoder_optimizer.load_state_dict(dec_state_optim)
 
 ###############
 # 8. Modeling #
@@ -1332,7 +1345,8 @@ dca = 0
 
 while epoch < opt.n_epochs:
     epoch += 1
-
+    print("WORD2INDEX DEBUG *****")
+    print([output_lang.word2index(x) for x in ['pour', 'refourbir', 'certaines', 'des', 'constructions', 'catastrophiques', 'qui', 'existent', 'en', 'amérique']])
     # Get training data for this cycle
     input_batches, input_lengths, target_batches, target_lengths = random_batch(opt.USE_CUDA, 
                          opt.batch_size, 
@@ -1364,10 +1378,20 @@ while epoch < opt.n_epochs:
 
     if (epoch+1) % save_every == 0:
         print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        torch.save(encoder_optimizer.state_dict(), "{}/{}/saved_encoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        torch.save(decoder_optimizer.state_dict(), "{}/{}/saved_decoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        #torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        #torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        #torch.save(encoder_optimizer.state_dict(), "{}/{}/saved_encoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        #torch.save(decoder_optimizer.state_dict(), "{}/{}/saved_decoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        model_dict = {'encoder': encoder.state_dict(), 
+        'decoder': decoder.state_dict(), 
+        'encoder_optimizer': encoder_optimizer.state_dict(), 
+        'decoder_optimizer': decoder_optimizer.state_dict(), 
+        'epoch': epoch,
+        "input_lang": input_lang,
+        "output_lang": output_lang
+                     }
+
+        torch.save(model_dict, "{}/{}/saved_model_{}.pth".format(opt.out_dir, opt.experiment, epoch))
 
         
     if (epoch+1) % opt.bleu_every == 0:
@@ -1379,6 +1403,17 @@ while epoch < opt.n_epochs:
     dca = 0
 
 
-torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))  
+model_dict = {'encoder': encoder.state_dict(), 
+'decoder': decoder.state_dict(), 
+'encoder_optimizer': encoder_optimizer.state_dict(), 
+'decoder_optimizer': decoder_optimizer.state_dict(), 
+'epoch': epoch,
+"input_lang": input_lang,
+"output_lang": output_lang
+             }
+
+torch.save(model_dict, "{}/{}/final_saved_model_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+
+#torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+#torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))  
         
