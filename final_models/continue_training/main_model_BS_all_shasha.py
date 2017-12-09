@@ -535,6 +535,15 @@ def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
                                                )
     print("Read %d sentence pairs" % len(pairs))
 
+    if opt.saved_state:
+        print("Loading saved model state {}".format(opt.saved_state))
+        saved_model = torch.load(opt.saved_state)
+        try:
+            input_lang = saved_model["input_lang"]
+            output_lang = saved_model["output_lang"]
+        except:
+            pass
+
     if do_filter is True:
         pairs = filterPairs(pairs, min_length_input, min_length_target,
                             max_length_input, max_length_target)
@@ -1062,7 +1071,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
 
     # teacher forcing ratio implemented with inverse sigmoid decay
     # ref: https://arxiv.org/pdf/1506.03099.pdf
-    teacher_forcing_ratio = opt.scheduled_sampling_k/(opt.scheduled_sampling_k+np.exp(epoch/opt.scheduled_sampling_k))
+    teacher_forcing_ratio = opt.scheduled_sampling_k/(opt.scheduled_sampling_k+np.exp(((epoch - 1)*iterations + i)/opt.scheduled_sampling_k))
 
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
@@ -1133,9 +1142,10 @@ print(output_lang.index2word)
 
 
 # TRIMMING DATA:
+if not opt.saved_state:
+    input_lang.trim(min_count=opt.min_count_trim_input)
+    output_lang.trim(min_count=opt.min_count_trim_output)
 
-input_lang.trim(min_count=opt.min_count_trim_input)
-output_lang.trim(min_count=opt.min_count_trim_output)
 
 
 def trim_pairs(pairs, char=False):
@@ -1217,8 +1227,7 @@ def collate_fn(pair_list):
         target_var = target_var.cuda()
     return input_var, input_lengths, target_var, target_lengths
 
-pair_dataset = pairDataset(pairs, input_lang, output_lang)
-pairloader = DataLoader(pair_dataset, batch_size=opt.batch_size, shuffle=True, collate_fn=collate_fn)
+
 
 
 def undo_chars(string): 
@@ -1277,10 +1286,29 @@ if opt.USE_CUDA:
 
 if opt.saved_state:
     saved_model = torch.load(opt.saved_state)
-    # epoch = saved_model['epoch']
-    encoder.load_state_dict(saved_model['encoder'])
+    epoch = saved_model['epoch']
+
+    try:
+        encoder.load_state_dict(saved_model['encoder'])
+    except:
+        input_lang.trim(min_count=opt.min_count_trim_input)
+        output_lang.trim(min_count=opt.min_count_trim_output)
+
+        encoder = EncoderRNN(input_lang.n_words, opt.hidden_size, opt.n_layers, dropout=opt.dropout)
+
+        if opt.attention == 'Luong':
+            decoder = LuongAttnDecoderRNN('dot', opt.hidden_size, output_lang.n_words, opt.n_layers, dropout=opt.dropout)
+        else:
+            decoder = BahdanauAttnDecoderRNN( opt.hidden_size, output_lang.n_words, opt.n_layers, dropout_p=opt.dropout)
+        
+        if opt.USE_CUDA:
+            encoder.cuda()
+            decoder.cuda()
+            
+        encoder.load_state_dict(saved_model['encoder'])
+
     decoder.load_state_dict(saved_model['decoder'])
-    encoder_optimizer.load_state_dict(saved_model['encoder_optimizer'])
+    encoder_optimizer.load_state_dict(saved_model['encoder_optimzer'])
     decoder_optimizer.load_state_dict(saved_model['decoder_optimizer'])
 
     
@@ -1294,6 +1322,10 @@ def adjust_learning_rate(optimizer, epoch):
         lr = opt.learning_rate * (.5 ** (epoch-8))
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
+
+pair_dataset = pairDataset(pairs, input_lang, output_lang)
+pairloader = DataLoader(pair_dataset, batch_size=opt.batch_size, shuffle=True, collate_fn=collate_fn)
+
 
 ###############
 # 8. Modeling #
@@ -1328,9 +1360,11 @@ while epoch < opt.n_epochs:
             print("checkpointing models at epoch {} and iteration {} to folder {}/{}".format(epoch, i, opt.out_dir, opt.experiment))
             model_dict = {'encoder': encoder.state_dict(), 
             'decoder': decoder.state_dict(), 
-            'encoder_optimizer': encoder_optimizer.state_dict(), 
+            'encoder_optimzer': encoder_optimizer.state_dict(), 
             'decoder_optimizer': decoder_optimizer.state_dict(), 
-            'epoch': epoch}
+            'epoch': epoch, 
+            "input_lang": input_lang, 
+            "output_lang": output_lang}
 
             torch.save(model_dict, "{}/{}/saved_model_{}_{}.pth".format(opt.out_dir, opt.experiment, epoch, i))
             
@@ -1346,9 +1380,11 @@ while epoch < opt.n_epochs:
 
 model_dict = {'encoder': encoder.state_dict(), 
         'decoder': decoder.state_dict(), 
-        'encoder_optimizer': encoder_optimizer.state_dict(), 
+        'encoder_optimzer': encoder_optimizer.state_dict(), 
         'decoder_optimizer': decoder_optimizer.state_dict(), 
-        'epoch': epoch}
+        'epoch': epoch, 
+        "input_lang": input_lang, 
+        "output_lang": output_lang}
 
 torch.save(model_dict, "{}/{}/saved_model_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         
