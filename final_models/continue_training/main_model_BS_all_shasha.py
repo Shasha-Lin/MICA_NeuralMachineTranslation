@@ -1346,7 +1346,7 @@ while epoch < opt.n_epochs:
 
 model_dict = {'encoder': encoder.state_dict(), 
         'decoder': decoder.state_dict(), 
-        'encoder_optimzer': encoder_optimizer.state_dict(), 
+        'encoder_optimizer': encoder_optimizer.state_dict(), 
         'decoder_optimizer': decoder_optimizer.state_dict(), 
         'epoch': epoch}
 
