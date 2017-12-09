@@ -1275,8 +1275,8 @@ if opt.saved_state:
     # epoch = saved_model['epoch']
     encoder = saved_model['encoder']
     decoder = saved_model['decoder']
-    encoder_optimizer = saved_model['encoder_optimizer']
-    decoder_optimizer = savedModel['decoder_optimizer']
+    encoder_optimizer = saved_model['encoder_optimzer']
+    decoder_optimizer = saved_model['encoder_optimzer']
     
 # Move models to GPU
 if opt.USE_CUDA:
