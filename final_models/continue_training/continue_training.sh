@@ -26,12 +26,12 @@ experiment=$8
 enc_cp=$9
 dec_cp=${10}
 epochs=${11}
+enc_opt=${12}
+dec_opt=${13}
 
-echo $epochs
-echo $dec_cp
-echo $enc_cp
+
 
 python3 -m pip install comet_ml --user
 
-python3 -u  $code_dir --print_every 1 --batch_size 32 --USE_CUDA --learning_rate $learning_rate --model_type "$model_type" --attention "$attention" --hidden_size $hidden_size --kmax $kmax --experiment $experiment --checkpoint_enc "$enc_cp" --checkpoint_dec "$dec_cp" --epoch_continue $epochs 
+python3 -u  $code_dir --print_every 1 --batch_size 32 --USE_CUDA --learning_rate $learning_rate --model_type "$model_type" --attention "$attention" --hidden_size $hidden_size --kmax $kmax --experiment $experiment --checkpoint_enc "$enc_cp" --checkpoint_dec "$dec_cp" --epoch_continue $epochs --checkpoint_enc_optim $enc_opt --checkpoint_dec_optim $dec_opt
 
