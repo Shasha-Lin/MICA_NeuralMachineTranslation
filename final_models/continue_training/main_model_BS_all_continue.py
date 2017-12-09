@@ -1238,7 +1238,6 @@ def trim_pairs(pairs, char=False):
             for word in pair[1].split(' '):
                 if word not in output_lang.word2count:
                     pairs[i][1] = re.sub(word, '<UNK>', pair[1]) 
-                    break
         else:
             for word in list(pair[1]):
                 if word not in dict(output_lang.vocab) and word != " ":
