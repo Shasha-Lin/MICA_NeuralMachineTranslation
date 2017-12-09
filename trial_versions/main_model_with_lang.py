@@ -229,11 +229,14 @@ class Lang(object):
         if self.trimmed: return
         self.trimmed = True
         
+        self.rejected_words = []
         keep_words = []
         
         for k, v in self.word2count.items():
             if v >= min_count:
                 keep_words.append(k)
+            else:
+            	self.rejected_words.append(k)
 
         print('keep_words %s / %s = %.4f' % (
             len(keep_words), len(self.__word2idx), len(keep_words) / len(self.__word2idx)
@@ -1238,7 +1241,6 @@ def trim_pairs(pairs, char=False):
             for word in pair[1].split(' '):
                 if word not in output_lang.word2count:
                     pairs[i][1] = re.sub(word, '<UNK>', pair[1]) 
-                    break
         else:
             for word in list(pair[1]):
                 if word not in dict(output_lang.vocab) and word != " ":
@@ -1262,14 +1264,20 @@ input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1,
                                               term=opt.model_type,
                                               char_output=target_char,
                                               set_type="valid")
-if opt.checkpoint_lang is None:
-    print("saving language obj to: {}.".format("{}/{}/saved_language_obj.pth".format(opt.out_dir, opt.experiment)))
-    language_dict = {"input_lang": input_lang, "output_lang": output_lang}
-    torch.save(language_dict, "{}/{}/saved_language_obj.pth".format(opt.out_dir, opt.experiment))
-else:
-    print("will not overwrite lang obj")
-print("WORD2INDEX DEBUG *****")
-print([output_lang.word2index(x) for x in ['pour', 'refourbir', 'certaines', 'des', 'constructions', 'catastrophiques', 'qui', 'existent', 'en', 'amérique']])
+# if opt.checkpoint_lang is None:
+    # print("saving language obj to: {}.".format("{}/{}/saved_language_obj.pth".format(opt.out_dir, opt.experiment)))
+    # language_dict = {"input_lang": input_lang, "output_lang": output_lang}
+    # torch.save(language_dict, "{}/{}/saved_language_obj.pth".format(opt.out_dir, opt.experiment))
+
+
+# else:
+#     print("will not overwrite lang obj")
+# print("WORD2INDEX DEBUG *****")
+# print([output_lang.word2index(x) for x in ['pour', 'refourbir', 'certaines', 'des', 'constructions', 'catastrophiques', 'qui', 'existent', 'en', 'amérique']])
+
+# print(input_lang.rejected_words[:5])
+# print(input_lang.word2index(input_lang.rejected_words[0]))
+
 
 ####################
 # 7. Configuration #
@@ -1355,8 +1363,8 @@ dca = 0
 
 while epoch < opt.n_epochs:
     epoch += 1
-    print("WORD2INDEX DEBUG *****")
-    print([output_lang.word2index(x) for x in ['pour', 'refourbir', 'certaines', 'des', 'constructions', 'catastrophiques', 'qui', 'existent', 'en', 'amérique']])
+    # print("WORD2INDEX DEBUG *****")
+    # print([output_lang.word2index(x) for x in ['pour', 'refourbir', 'certaines', 'des', 'constructions', 'catastrophiques', 'qui', 'existent', 'en', 'amérique']])
     # Get training data for this cycle
     input_batches, input_lengths, target_batches, target_lengths = random_batch(opt.USE_CUDA, 
                          opt.batch_size, 
