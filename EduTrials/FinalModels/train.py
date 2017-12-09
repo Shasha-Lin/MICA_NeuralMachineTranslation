@@ -784,6 +784,10 @@ for pair in pairs:
 print("Trimmed from %d pairs to %d, %.4f of total" % (len(pairs), len(keep_pairs), len(keep_pairs) / len(pairs)))
 pairs = keep_pairs
 
+# Save for future runs: 
+pickle.dump(input_lang, open("{}/{}/input_lang.p".format(opt.out_dir, opt.experiment), "wb"  ) )
+pickle.dump(output_lang, open("{}/{}/output_lang.p".format(opt.out_dir, opt.experiment), "wb"  ) )
+
 ####################
 # 7. Configuration #
 ####################
