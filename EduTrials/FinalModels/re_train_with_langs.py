@@ -33,10 +33,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--out_dir', type=str, default="/scratch/eff254/NLP/MICA_NeuralMachineTranslation/EduTrials/FinalModels/checkpoints/", help="Directory where the states dicts are saved")
 parser.add_argument('--experiment_name', type=str, default="exp", help="Original experiment name (As in comet name")
 parser.add_argument('--continue_from', type=int, default=None, help='From which epoch continue training? If None, from last detected. default = None')
+parser.add_argument('--rerunn_time', type=int, default=2, help='How many times have you been running? (Just for comet control)')
 opt_rerun = parser.parse_args()
 
 ######## Load opt Object from before: ########
 opt = pickle.load(open("{}/{}/model_opt.p".format(opt_rerun.out_dir, opt_rerun.experiment_name), "rb"))
+opt.rerun = opt_rerun.rerunn_time
 
 # experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", project_name='MICA Final', log_code=True)
 experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", log_code=True) # Project name doesn't seem to be working :-( 
