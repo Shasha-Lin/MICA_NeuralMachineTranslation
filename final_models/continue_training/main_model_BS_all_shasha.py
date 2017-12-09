@@ -1281,7 +1281,7 @@ if opt.saved_state:
     encoder.load_state_dict(saved_model['encoder'])
     decoder.load_state_dict(saved_model['decoder'])
     encoder_optimizer.load_state_dict(saved_model['encoder_optimzer'])
-    decoder_optimizer.load_state_dict(saved_model['encoder_optimzer'])
+    decoder_optimizer.load_state_dict(saved_model['decoder_optimzer'])
 
     
 # Keep track of time elapsed and running averages
