@@ -8,7 +8,6 @@ import random
 import time
 import datetime
 import math
-import nltk
 import torch
 import torch.nn as nn
 from torch.nn import functional
@@ -24,6 +23,7 @@ import torchvision
 from PIL import Image
 import argparse
 from collections import Counter
+from torch.utils.data import Dataset, DataLoader
 
 import os
 import subprocess
@@ -34,9 +34,9 @@ import subprocess
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--MIN_LENGTH', type=int, default=1, help='Min Length of sequence (Input side)')
-    parser.add_argument('--MAX_LENGTH', type=int, default=140, help='Max Length of sequence (Input side)')
+    parser.add_argument('--MAX_LENGTH', type=int, default=40, help='Max Length of sequence (Input side)')
     parser.add_argument('--MIN_LENGTH_TARGET', type=int, default=1, help='Min Length of sequence (Output side)')
-    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=140, help='Max Length of sequence (Output side)')
+    parser.add_argument('--MAX_LENGTH_TARGET', type=int, default=40, help='Max Length of sequence (Output side)')
     parser.add_argument('--lang1', type=str, default="en", help='Input Language')
     parser.add_argument('--lang2', type=str, default="fr", help='Target Language')
     parser.add_argument('--USE_CUDA', action='store_true', help='IF USE CUDA (Default == False)')
@@ -49,32 +49,34 @@ def parse_args():
     parser.add_argument('--dropout', type=float, default=0.1, help='Dropout (%) in the decoder')
     parser.add_argument('--model_type', type=str, default="seq2seq", help='Model type (and ending of files)')
     parser.add_argument('--main_data_dir', type=str, default= "/scratch/eff254/NLP/Data/Model_ready", help='Directory where data is saved (in folders tain/dev/test)')
-    parser.add_argument('--out_dir', type=str, default="./checkpoints", help="Directory to save the models state dict (No default)")
-    parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation/", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
-    parser.add_argument('--optimizer', type=str, default="Adam", help="Optimizer (Adam vs SGD). Default: Adam")
+    parser.add_argument('--out_dir', type=str, default="/scratch/sl4964/checkpoints", help="Directory to save the models state dict (No default)")
+    parser.add_argument('--eval_dir', type=str, default="/scratch/eff254/NLP/Evaluation", help="Directory to save predictions - MUST CONTAIN PEARL SCRIPT")
+    parser.add_argument('--optimizer', type=str, default="SGD", help="Optimizer (Adam vs SGD). Default: Adam")
     parser.add_argument('--kmax', type=int, default=10, help="Beam search Topk to search")
     parser.add_argument('--clip', type=int, default=1, help="Clipping the gradients")
     parser.add_argument('--batch_size', type=int, default=128, help="Size of a batch")
     parser.add_argument('--min_count_trim_output', type=int, default=2, help="trim infrequent output words")
     parser.add_argument('--min_count_trim_input', type=int, default=2, help="trim infrequent input words")
-    parser.add_argument('--save_every', type=int, default=25, help='Checkpoint model after number of iters')
+    parser.add_argument('--save_every', type=int, default=200, help='Checkpoint model after number of iters')
     parser.add_argument('--print_every', type=int, default=10, help='Print training loss after number of iters')
     parser.add_argument('--eval_every', type=int, default=100, help='Evaluate translation on one dev pair after number of iters')
     parser.add_argument('--bleu_every', type=int, default=200, help='Get bleu score number of iters')
     parser.add_argument('--scheduled_sampling_k', type=int, default=3000, help='scheduled sampling parameter for teacher forcing, \
         based on inverse sigmoid decay')
+    parser.add_argument('--momentum', type=float, default=0.5, help='Momentum for SGD')
+    
+    parser.add_argument('--saved_state', type=str, default="", help="saved model to load from")
     parser.add_argument('--experiment', type=str, default="MICA", help='experiment name')
-    parser.add_argument('--checkpoint_enc', type=str, default=None, help="encoder checkpoint")
-    parser.add_argument('--checkpoint_dec', type=str, default=None, help="decoder checkpoint")
-    parser.add_argument('--epoch_continue', type=int, default=None, help="epoch # to continue training from")
-    parser.add_argument('--checkpoint_enc_optim', type=str, default=None, help="encoder checkpoint")
-    parser.add_argument('--checkpoint_dec_optim', type=str, default=None, help="decoder checkpoint")
-    parser.add_argument('--saved_state', type=str, default=None, help="model checkpoint")
+
     opt = parser.parse_args()
     print(opt)
 
     if opt.experiment is None:
         opt.experiment = 'MICA_experiment'
+
+    target_char = (opt.model_type == 'bpe2char')
+    if opt.model_type == 'bpe2char_2' or opt.model_type == 'bpe2char_3':
+        opt.MAX_LENGTH_TARGET = 200
 
     ######## Comet ML ########
     #experiment = comet_mirror("Experiment2")
@@ -84,13 +86,16 @@ def parse_args():
 
 
     # flag for character encoding
-    target_char = (opt.model_type == 'bpe2char')
+    
     return opt, target_char, experiment
 
 
 opt, target_char , experiment = parse_args()
-os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
-os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
+
+if not os.path.exists('{0}/{1}'.format(opt.out_dir, opt.experiment)):
+    os.system('mkdir {0}/{1}'.format(opt.out_dir, opt.experiment))
+if not os.path.exists('{0}/{1}'.format(opt.eval_dir, opt.experiment)):
+    os.system('mkdir {0}/{1}'.format(opt.eval_dir, opt.experiment))
 
 
 
@@ -143,7 +148,6 @@ PAD_TOKEN = 0
 SOS_TOKEN = BOS_TOKEN = 1
 EOS_TOKEN = 2
 UNK_TOKEN = 3
-
 
 """
 class Lang:
@@ -199,16 +203,16 @@ def normalize_string(s):
     return s
 """
 
+
 class Lang(object):
-    
     def __init__(self, name):
         self.name = name
         self.trimmed = False
         self.__word2idx = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:'<UNK>'}        
-        self.n_words = 4 # Count default tokens       
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3: '<UNK>'}
+        self.n_words = 4  # Count default tokens
         self.word2count = {}
-        
+
     def index_words(self, sentence):
         for word in sentence.split(' '):
             self.index_word(word)
@@ -226,9 +230,9 @@ class Lang(object):
     def trim(self, min_count):
         if self.trimmed: return
         self.trimmed = True
-        
+
         keep_words = []
-        
+
         for k, v in self.word2count.items():
             if v >= min_count:
                 keep_words.append(k)
@@ -239,8 +243,8 @@ class Lang(object):
 
         # Reinitialize dictionaries
         self.__word2idx = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:'<UNK>'}
-        self.n_words = 4 # Count default tokens
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3: '<UNK>'}
+        self.n_words = 4  # Count default tokens
 
         for word in keep_words:
             self.index_word(word)
@@ -250,13 +254,12 @@ class Lang(object):
 
 
 class Tokenizer(Lang):
-
     def __init__(self, max_length=500, vocab_file=None,
                  additional_tokens=None,
                  vocab_threshold=2):
         self.max_length = max_length
         self.vocab_threshold = vocab_threshold
-        #self.special_tokens = [PAD_TOKEN, UNK_TOKEN, BOS_TOKEN, EOS_TOKEN]
+        # self.special_tokens = [PAD_TOKEN, UNK_TOKEN, BOS_TOKEN, EOS_TOKEN]
         self.special_tokens = ['<PAD>', '<BOS>', '<EOS>', '<UNK>']
         if additional_tokens is not None:
             self.special_tokens += additional_tokens
@@ -265,8 +268,7 @@ class Tokenizer(Lang):
             self.load_vocab(vocab_file)
         self.n_words = 4
         self.trimmed = False
-        self.index2word = {0: "PAD_TOKEN", 1: "SOS_TOKEN", 2: "EOS_TOKEN", 3:'<UNK>'}
-
+        self.index2word = {0: "PAD_TOKEN", 1: "SOS_TOKEN", 2: "EOS_TOKEN", 3: '<UNK>'}
 
     @property
     def vocab_size(self):
@@ -285,18 +287,18 @@ class Tokenizer(Lang):
             idx + len(self.special_tokens): word[0] for idx, word in enumerate(self.vocab)}
         for i, tok in enumerate(self.special_tokens):
             self.__word2idx[tok] = i
-            self.index2word[i]=tok
-        self.n_words=self.vocab_size
+            self.index2word[i] = tok
+        self.n_words = self.vocab_size
         print(self.index2word)
-    
-    def word2index(self, word): 
+
+    def word2index(self, word):
         return self.__word2idx.get(word, UNK_TOKEN)
-    
+
     def segment(self, line):
         """segments a line to tokenizable items"""
         return str(line).lower().translate(string.punctuation).strip().split()
 
-    def get_vocab(self,  item_list, from_filenames=True, limit=None):
+    def get_vocab(self, item_list, from_filenames=True, limit=None):
         vocab = Counter()
         if from_filenames:
             filenames = item_list
@@ -351,9 +353,9 @@ class Tokenizer(Lang):
         keep_words = []
 
         no_words_kept = 0
-        for (k,v) in self.vocab:
+        for (k, v) in self.vocab:
             if v >= min_count:
-                keep_words.append([k]*v)
+                keep_words.append([k] * v)
                 no_words_kept += 1
         keep_words = [item for sublist in keep_words for item in sublist]
         print('keep_words %s / %s = %.4f' % (
@@ -363,22 +365,27 @@ class Tokenizer(Lang):
         # Reinitialize dictionaries
         self.vocab = {}
         self.__word2idx = {}
-        self.n_words = 3 # Count default tokens
+        self.n_words = 4  # Count default tokens
 
         self.get_vocab(keep_words, from_filenames=False)
+
 
 # adding section for character encoding on non-bpe base files
 # Source: https://github.com/eladhoffer/seq2seq.pytorch/blob/master/seq2seq/tools/tokenizer.py
 class CharTokenizer(Tokenizer):
-
     def segment(self, line):
         return list(line.strip())
 
     def detokenize(self, inputs, delimiter=u''):
         return super(CharTokenizer, self).detokenize(inputs, delimiter)
-    
-    
-    
+
+def normalize_string(s):
+    s = re.sub(r"([,.!?])", r" \1 ", s)
+    s = re.sub(r"[^a-zA-Z,.!?]+", r" ", s)
+    s = re.sub(r"\s+", r" ", s).strip()
+    return s
+
+   
 '''
 def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
                term="txt", reverse=False, char_output=False):
@@ -465,10 +472,7 @@ def read_langs(lang1, lang2, set_type="train", normalize=False, path='.',
         output_lang = Lang(lang1)
     else:
         input_lang = Lang(lang1)
-        if char_output:
-            output_lang = CharTokenizer(vocab_file='')
-        else:
-            output_lang = Lang(lang2)
+        output_lang = Lang(lang2)
 
     return input_lang, output_lang, pairs
 
@@ -518,7 +522,7 @@ def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
 # MD edit
 def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
                  min_length_target, max_length_target, set_type='train', do_filter=True, normalize=False,
-                 reverse=False, path='.', term=opt.model_type, char_output=False, existing_languages=opt.saved_state):
+                 reverse=False, path='.', term=opt.model_type, char_output=False):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
     input_lang, output_lang, pairs = read_langs(lang1_name, 
@@ -530,13 +534,7 @@ def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
                                                 char_output=char_output
                                                )
     print("Read %d sentence pairs" % len(pairs))
-    
-    if existing_languages is not None:
-        saved_model = torch.load(existing_languages)
-        input_lang = saved_model["input_lang"]
-        output_lang = saved_model["output_lang"]
-    
-    
+
     if do_filter is True:
         pairs = filterPairs(pairs, min_length_input, min_length_target,
                             max_length_input, max_length_target)
@@ -558,23 +556,9 @@ def prepare_data(lang1_name, lang2_name, min_length_input, max_length_input,
 # end MD edit
 
 
+
 def indexes_from_sentence(lang, sentence):
     return [lang.word2index(word) for word in sentence.split(' ')]
-
-# def indexes_from_sentence(lang, sentence):
-#     try:
-#         val = [lang.word2index[word] for word in sentence.split(' ')]
-#     except KeyError:
-#         # Do it individually. Means one word is not on dictionary:
-#         val = []
-#         for word in sentence.split(' '):
-#             try:
-#                 indexed = lang.word2index[word]
-#                 val.append(indexed)
-#             except KeyError:
-#                 val.append(3)
-
-#     return val + [EOS_token]
 
 
 # Pad a with the PAD symbol
@@ -853,7 +837,7 @@ class LuongAttnDecoderRNN(nn.Module):
         concat_output = F.tanh(self.concat(concat_input))
 
         # Finally predict next token (Luong eq. 6, without softmax)
-        output = self.out(concat_output)
+        output = F.log_softmax(self.out(concat_output))
 
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights
@@ -880,7 +864,7 @@ def update_dictionary(target_sequence, topv, topi, key, dec_hidden, decoder_attn
     else:
         prev_val = target_sequence[key][0]
         for i in range(len(topi)):
-            target_sequence.update({key+"-"+str(topi[i]) : [topv[i]*prev_val, dec_hidden, decoder_attns] })
+            target_sequence.update({key+"-"+str(topi[i]) : [topv[i]+prev_val, dec_hidden, decoder_attns] })
         del[target_sequence[key]]
 
 
@@ -893,7 +877,7 @@ def get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidd
         if di == 0:
             decoder_output, decoder_hidden, decoder_attention = decoder( decoder_input, decoder_hidden, encoder_outputs )
             topv, topi = decoder_output.data.topk(kmax)
-            topv = np.exp(topv[0].cpu().numpy())
+            topv = topv[0].cpu().numpy()
             topi = topi[0].cpu().numpy()
             decoder_attentions[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).cpu().data
             update_dictionary(target_sequence, topv, topi, None, decoder_hidden, decoder_attentions)
@@ -907,7 +891,7 @@ def get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidd
                     dec_input = dec_input.cuda() if opt.USE_CUDA else dec_input
                     decoder_output, dec_hidden, decoder_attention = decoder( dec_input, temp[keys[i]][1], encoder_outputs )
                     topv, topi = decoder_output.data.topk(kmax)
-                    topv = np.exp(topv[0].cpu().numpy())
+                    topv = topv[0].cpu().numpy()
                     topi = topi[0].cpu().numpy()
                     dec_attns = temp[keys[i]][2]
                     dec_attns[di,:decoder_attention.size(2)] += decoder_attention.squeeze(0).squeeze(0).cpu().data
@@ -924,7 +908,7 @@ def get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidd
     # Get the decoded words:
     decoded_words_indices = seq.split("-")
     decoded_words = [output_lang.index2word[int(i)] for i in decoded_words_indices]
-    if int(decoded_words_indices[-1]) != EOS_token:
+    if int(decoded_words_indices[-1]) != EOS_TOKEN:
         decoded_words.append('<EOS>')
 
     return decoded_words, decoder_attentions
@@ -932,7 +916,7 @@ def get_seq_through_beam_search(max_length, decoder, decoder_input, decoder_hidd
 # Evaluation is mostly the same as training, but there are no targets. Instead we always feed the decoder's predictions back to itself.
 # Every time it predicts a word, we add it to the output string. If it predicts the EOS token we stop there. We also store the decoder's attention outputs for each step to display later.
 
-def evaluate(input_seq, max_length=opt.MAX_LENGTH):
+def evaluate(input_seq, max_length=opt.MAX_LENGTH_TARGET):
     input_lengths = [len(input_seq)]
     input_seqs = [indexes_from_sentence(input_lang, input_seq)]
     input_batches = Variable(torch.LongTensor(input_seqs), volatile=True).transpose(0, 1)
@@ -966,16 +950,13 @@ def evaluate(input_seq, max_length=opt.MAX_LENGTH):
 
 
 # We can evaluate random sentences from the training set and print out the input, target, and output to make some subjective quality judgements:
-def evaluate_randomly():
-    [input_sentence, target_sentence] = random.choice(pairs)
-    evaluate_and_show_attention(input_sentence, target_sentence)
+
 
 def evaluate_and_show_attention(input_sentence, target_sentence=None):
     output_words, attentions = evaluate(input_sentence)
 
     # Calculating the bleu score excluding the last word (<EOS>)
     #bleu_score = nltk.translate.bleu_score.sentence_bleu([target_sentence], ' '.join(output_words[:-1]))
-
     output_sentence = ' '.join(output_words)
 
     print('>', input_sentence)
@@ -984,71 +965,11 @@ def evaluate_and_show_attention(input_sentence, target_sentence=None):
     print('<', output_sentence)
     #print("BLUE SCORE IS:", bleu_score)
 
-#def eval_single(string):
-    
-#     words, tensor = evaluate(string)
-#     words = ' '.join(words)
-#     words = re.sub('EOS', '', words)
-#     return(words)
-
-# def evaluate_list_pairs(list_strings):
-    
-#     output = [eval_single(x[0]) for x in list_strings]
-    
-#     return output
-
-# def export_as_list(original, translations): 
-    
-#     with open("{}/{}/original.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
-#         for sentence in original:
-#             original_file.write(sentence + "\n")
-    
-    
-#     with open("{}/{}/translations.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
-#         for sentence in translations:
-#             translations_file.write(sentence + "\n")
-        
-# def run_perl(): 
-    
-#     ''' Assumes the multi-bleu.perl is in opt.eval_dir
-#         Assumes you exported files with names in export_as_list()'''
-    
-#     cmd = "%s %s < %s" % (opt.eval_dir + "./multi-bleu.perl", opt.eval_dir + opt.experiment + \
-#         '/original.txt', opt.eval_dir + opt.experiment + '/translations.txt')
-#     bleu_output = subprocess.check_output(cmd, shell=True)
-#     m = re.search("BLEU = (.+?),", str(bleu_output))
-#     bleu_score = float(m.group(1))
-    
-#     return bleu_score
-    
-# def multi_blue_dev(dev_pairs):
-    
-#     prediction = evaluate_list_pairs(dev_pairs)
-#     target_eval = [x[1] for x in dev_pairs]    
-#     export_as_list(target_eval, prediction)
-#     blue = run_perl()
-#     return blue    
-
-
-## Bleu score updates
-def undo_chars(string): 
-    string = re.sub("   ", "@", string)
-    string = re.sub(" ", "", string)
-    string = re.sub("@", " ", string)  
-    return string
-
-def undo_bpe(string): 
-    
-    string = re.sub("@@ ", "", string)
-        
-    return string
-    
 def eval_single(string):
     
     words, tensor = evaluate(string)
     words = ' '.join(words)
-    words = re.sub('<EOS>', '', words)
-
+    words = re.sub('EOS', '', words)
     return(words)
 
 def evaluate_list_pairs(list_strings, term=opt.model_type):
@@ -1078,35 +999,26 @@ def run_perl():
     ''' Assumes the multi-bleu.perl is in opt.eval_dir
         Assumes you exported files with names in export_as_list()'''
     
-    cmd = "%s %s < %s" % (opt.eval_dir + "./multi-bleu.perl", opt.eval_dir + opt.experiment + \
-        '/original.txt', opt.eval_dir + opt.experiment + '/translations.txt')
+    cmd = "%s %s < %s" % (opt.eval_dir + "/./multi-bleu.perl", opt.eval_dir + '/' + opt.experiment + \
+        '/original.txt', opt.eval_dir + '/' + opt.experiment + '/translations.txt')
     bleu_output = subprocess.check_output(cmd, shell=True)
     m = re.search("BLEU = (.+?),", str(bleu_output))
     bleu_score = float(m.group(1))
     
     return bleu_score
-
     
 def multi_blue_dev(dev_pairs, term=opt.model_type):
     
     prediction = evaluate_list_pairs(dev_pairs)
-    
     if term == "bpe2bpe":
         target_eval = [undo_bpe(x[1]) for x in dev_pairs]   
     elif term in ["bpe2char", "bpe2char_2", "bpe2char_3"]:
         target_eval = [undo_chars(x[1]) for x in dev_pairs]   
     else:
-        target_eval = [x[1] for x in dev_pairs] 
-    
+        target_eval = [x[1] for x in dev_pairs]   
     export_as_list(target_eval, prediction)
     blue = run_perl()
     return blue
-
-### END Bleu score updates
-
-
-
-
 
 ###############################
 # 5. Training & training loop #
@@ -1216,12 +1128,14 @@ input_lang, output_lang, pairs = prepare_data(opt.lang1,
                                               term=opt.model_type,
                                               char_output=target_char
                                              )
+print(input_lang.index2word)
+print(output_lang.index2word)
 
 
 # TRIMMING DATA:
-if opt.saved_state is None:
-    input_lang.trim(min_count=opt.min_count_trim_input)
-    output_lang.trim(min_count=opt.min_count_trim_output)
+
+input_lang.trim(min_count=opt.min_count_trim_input)
+output_lang.trim(min_count=opt.min_count_trim_output)
 
 
 def trim_pairs(pairs, char=False):
@@ -1235,12 +1149,12 @@ def trim_pairs(pairs, char=False):
         if not char:
             for word in pair[1].split(' '):
                 if word not in output_lang.word2count:
-                    pairs[i][1] = re.sub(word, '<UNK>', pair[1]) 
+                    pairs[i][1] = re.sub(word, '<UNK>', pair[1])
                     break
         else:
             for word in list(pair[1]):
                 if word not in dict(output_lang.vocab) and word != " ":
-                    pairs[i][1] = re.sub(word, '<UNK>', pair[1])   
+                    pairs[i][1] = re.sub(word, '<UNK>', pair[1])
 
     print("Total number of sentence pairs: %d." %len(pairs))
     return pairs
@@ -1261,6 +1175,66 @@ input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1,
                                               char_output=target_char,
                                               set_type="valid")
 
+pairs_dev = trim_pairs(pairs_dev, char=target_char)
+
+def evaluate_randomly():
+    [input_sentence, target_sentence] = random.choice(pairs_dev)
+    evaluate_and_show_attention(input_sentence, target_sentence)
+
+class pairDataset(Dataset):
+
+    def __init__(self, pairs, input_lang, output_ang):
+        self.pairs = pairs
+        self.input_lang = input_lang
+        self.output_lang = output_lang
+
+    def __len__(self):
+        return len(self.pairs)
+
+    def __getitem__(self, idx):
+
+        pair = pairs[idx]
+        input_seq = indexes_from_sentence(self.input_lang, pair[0])
+        target_seq = indexes_from_sentence(self.output_lang, pair[1])
+
+        return [input_seq, target_seq]
+
+def collate_fn(pair_list):
+    # pair_list is a list of language pairs generated by pairDataset
+    seq_pairs = sorted(pair_list, key=lambda p: len(p[0]), reverse=True)
+    input_seqs, target_seqs = zip(*seq_pairs)
+
+    input_lengths = [len(s) for s in input_seqs]
+    input_padded = [pad_seq(s, max(input_lengths)) for s in input_seqs]
+    target_lengths = [len(s) for s in target_seqs]
+    target_padded = [pad_seq(s, max(target_lengths)) for s in target_seqs]
+
+    input_var = Variable(torch.LongTensor(input_padded)).transpose(0, 1)
+    target_var = Variable(torch.LongTensor(target_padded)).transpose(0, 1)
+
+    if opt.USE_CUDA:
+        input_var = input_var.cuda()
+        target_var = target_var.cuda()
+    return input_var, input_lengths, target_var, target_lengths
+
+pair_dataset = pairDataset(pairs, input_lang, output_lang)
+pairloader = DataLoader(pair_dataset, batch_size=opt.batch_size, shuffle=True, collate_fn=collate_fn)
+
+
+def undo_chars(string): 
+    
+    string = re.sub("   ", "@", string)
+    string = re.sub(" ", "", string)
+    string = re.sub("@", " ", string)
+        
+    return string
+ 
+def undo_bpe(string): 
+    
+    string = re.sub("@@ ", "", string)
+         
+    return string
+
 
 
 ####################
@@ -1271,11 +1245,13 @@ input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1,
 # attn_model = 'dot'
 # decoder_learning_ratio = 5.0
 epoch = 0
+
 print_every = opt.print_every
 save_every = opt.save_every
 evaluate_every = opt.eval_every # We check the validation in every 10,000 minibatches
 
 # Initialize models
+
 encoder = EncoderRNN(input_lang.n_words, opt.hidden_size, opt.n_layers, dropout=opt.dropout)
 
 if opt.attention == 'Luong':
@@ -1288,132 +1264,91 @@ if opt.optimizer == "Adam":
     #decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=opt.learning_rate)
 elif opt.optimizer == "SGD":
-    encoder_optimizer = optim.SGD(encoder.parameters(), lr=opt.learning_rate)
+    encoder_optimizer = optim.SGD(encoder.parameters(), lr=opt.learning_rate, momentum=opt.momentum)
     #decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
-    decoder_optimizer = optim.SGD(decoder.parameters(), lr=opt.learning_rate)
+    decoder_optimizer = optim.SGD(decoder.parameters(), lr=opt.learning_rate, momentum=opt.momentum)
 else:
     raise ValueError('Optimizer options not found: Select SGD or Adam')
-criterion = nn.CrossEntropyLoss()
 
 # Move models to GPU
 if opt.USE_CUDA:
     encoder.cuda()
     decoder.cuda()
-# Keep track of time elapsed and running averages
-start = time.time()
-print_loss_total = 0 # Reset every print_every
 
-if opt.saved_state is not None:
-    print("Loading saved model state {}".format(opt.saved_state))
+if opt.saved_state:
     saved_model = torch.load(opt.saved_state)
+    # epoch = saved_model['epoch']
     encoder.load_state_dict(saved_model['encoder'])
     decoder.load_state_dict(saved_model['decoder'])
     encoder_optimizer.load_state_dict(saved_model['encoder_optimizer'])
     decoder_optimizer.load_state_dict(saved_model['decoder_optimizer'])
+
     
+# Keep track of time elapsed and running averages
+start = time.time()
+print_loss_total = 0 # Reset every t
 
-# if opt.checkpoint_enc is not None:
-#     print("Loading encoder state dict: {}".format(opt.checkpoint_enc))
-#     enc_state = torch.load(opt.checkpoint_enc)
-#     encoder.load_state_dict(enc_state)
-
-# if opt.checkpoint_dec is not None:
-#     print("Loading decoder state dict: {}".format(opt.checkpoint_dec))
-#     dec_state = torch.load(opt.checkpoint_dec)
-#     decoder.load_state_dict(dec_state)
-    
-# if opt.epoch_continue is not None:
-#     epoch = opt.epoch_continue
-#     print("Continuing training from epoch: {}".format(epoch))
-
-# if opt.checkpoint_enc_optim is not None:
-#     print("Loading encoder optim state dict: {}".format(opt.checkpoint_enc_optim))
-#     enc_state_optim = torch.load(opt.checkpoint_enc_optim)
-#     encoder_optimizer.load_state_dict(enc_state_optim)
-
-# if opt.checkpoint_dec_optim is not None:
-#     print("Loading encoder optim state dict: {}".format(opt.checkpoint_dec_optim))
-#     dec_state_optim = torch.load(opt.checkpoint_dec_optim)
-#     decoder_optimizer.load_state_dict(dec_state_optim)
+def adjust_learning_rate(optimizer, epoch):
+    """Decays learning rate to .9 of previous one every 30 epochs, after first 60 epochs"""
+    if epoch > 8:
+        lr = opt.learning_rate * (.5 ** (epoch-8))
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
 
 ###############
 # 8. Modeling #
 ###############
 
-eca = 0
-dca = 0
+iterations = len(pairs)/opt.batch_size
 
 while epoch < opt.n_epochs:
     epoch += 1
-    print("WORD2INDEX DEBUG *****")
-    print([output_lang.word2index(x) for x in ['pour', 'refourbir', 'certaines', 'des', 'constructions', 'catastrophiques', 'qui', 'existent', 'en', 'amérique']])
-    # Get training data for this cycle
-    input_batches, input_lengths, target_batches, target_lengths = random_batch(opt.USE_CUDA, 
-                         opt.batch_size, 
-                         pairs, 
-                         input_lang, 
-                         output_lang, 
-                         opt.MAX_LENGTH, 
-                         opt.MAX_LENGTH_TARGET, 
-                         char_output=target_char)
-    # Run the train function
-    loss, ec, dc = train(
+    for i, (input_batches, input_lengths, target_batches, target_lengths) in enumerate(pairloader):
+        i += 1
+        loss, ec, dc = train(
         input_batches, input_lengths, target_batches, target_lengths,
         encoder, decoder,
         encoder_optimizer, decoder_optimizer)
-    # Keep track of loss
-    print_loss_total += loss
-    eca += ec
-    dca += dc
 
-    if (epoch+1) % print_every == 0:
-        print_loss_avg = print_loss_total / print_every
-        experiment.log_metric("Train loss", print_loss_avg)
-        print_loss_total = 0
-        print_summary = '%s (%d %d%%) %.4f' % (time_since(start, epoch / opt.n_epochs), epoch, epoch / opt.n_epochs * 100, print_loss_avg)
-        print(print_summary)
+        print_loss_total += loss
 
-    if (epoch+1) % evaluate_every == 0:
-        evaluate_randomly()
+        if i % print_every == 0:
+            print_loss_avg = print_loss_total / print_every
+            experiment.log_metric("Train loss", print_loss_avg)
+            print_loss_total = 0
+            percentage = ((epoch - 1)*iterations + i)/ (iterations*opt.n_epochs)
+            print_summary = '%s (%d %d%%) Train loss: %.4f' % (time_since(start, percentage), \
+                (epoch - 1)*iterations + i, percentage*100, print_loss_avg)
+            print(print_summary)
 
-    if (epoch+1) % save_every == 0:
-        print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-        #torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        #torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        #torch.save(encoder_optimizer.state_dict(), "{}/{}/saved_encoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        #torch.save(decoder_optimizer.state_dict(), "{}/{}/saved_decoder_optim_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        model_dict = {'encoder': encoder.state_dict(), 
-        'decoder': decoder.state_dict(), 
-        'encoder_optimizer': encoder_optimizer.state_dict(), 
-        'decoder_optimizer': decoder_optimizer.state_dict(), 
-        'epoch': epoch,
-        "input_lang": input_lang,
-        "output_lang": output_lang
-                     }
+        if i % evaluate_every == 0:
+            evaluate_randomly()
 
-        torch.save(model_dict, "{}/{}/saved_model_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        if i % save_every == 0:
+            print("checkpointing models at epoch {} and iteration {} to folder {}/{}".format(epoch, i, opt.out_dir, opt.experiment))
+            model_dict = {'encoder': encoder.state_dict(), 
+            'decoder': decoder.state_dict(), 
+            'encoder_optimizer': encoder_optimizer.state_dict(), 
+            'decoder_optimizer': decoder_optimizer.state_dict(), 
+            'epoch': epoch}
 
-        
-    if (epoch+1) % opt.bleu_every == 0:
-        blue_score = multi_blue_dev(pairs_dev)
-        print("Bleu score at {} iteration = {}".format(epoch, blue_score))
-        experiment.log_metric("Bleu score", blue_score)
+            torch.save(model_dict, "{}/{}/saved_model_{}_{}.pth".format(opt.out_dir, opt.experiment, epoch, i))
+            
 
-    eca = 0
-    dca = 0
+        if i % opt.bleu_every == 0:
+            blue_score = multi_blue_dev(pairs_dev)
+            print("Bleu score at {} iteration = {}".format(epoch, blue_score))
+            experiment.log_metric("Bleu score", blue_score)
+
+    adjust_learning_rate(encoder_optimizer, epoch+1)    
+    adjust_learning_rate(decoder_optimizer, epoch+1)
 
 
 model_dict = {'encoder': encoder.state_dict(), 
-'decoder': decoder.state_dict(), 
-'encoder_optimizer': encoder_optimizer.state_dict(), 
-'decoder_optimizer': decoder_optimizer.state_dict(), 
-'epoch': epoch,
-"input_lang": input_lang,
-"output_lang": output_lang
-             }
+        'decoder': decoder.state_dict(), 
+        'encoder_optimizer': encoder_optimizer.state_dict(), 
+        'decoder_optimizer': decoder_optimizer.state_dict(), 
+        'epoch': epoch}
 
-torch.save(model_dict, "{}/{}/final_saved_model_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-
-#torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-#torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))  
+torch.save(model_dict, "{}/{}/saved_model_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         
