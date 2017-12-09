@@ -1270,18 +1270,20 @@ elif opt.optimizer == "SGD":
 else:
     raise ValueError('Optimizer options not found: Select SGD or Adam')
 
-if opt.saved_state:
-    saved_model = torch.load(opt.saved_state)
-    # epoch = saved_model['epoch']
-    encoder = saved_model['encoder']
-    decoder = saved_model['decoder']
-    encoder_optimizer = saved_model['encoder_optimzer']
-    decoder_optimizer = saved_model['encoder_optimzer']
-    
 # Move models to GPU
 if opt.USE_CUDA:
     encoder.cuda()
     decoder.cuda()
+
+if opt.saved_state:
+    saved_model = torch.load(opt.saved_state)
+    # epoch = saved_model['epoch']
+    encoder.load_state_dict(saved_model['encoder'])
+    decoder.load_state_dict(saved_model['decoder'])
+    encoder_optimizer.load_state_dict(saved_model['encoder_optimzer'])
+    decoder_optimizer.load_state_dict(saved_model['encoder_optimzer'])
+
+    
 # Keep track of time elapsed and running averages
 start = time.time()
 print_loss_total = 0 # Reset every t
