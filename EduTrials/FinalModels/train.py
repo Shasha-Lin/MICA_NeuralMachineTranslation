@@ -793,7 +793,7 @@ pickle.dump(output_lang, open("{}/{}/output_lang.p".format(opt.out_dir, opt.expe
 ####################
 
 epoch = 0
-print_every = 10
+print_every = 5
 save_every = 200
 evaluate_every = 100 # Check visually the validation in every X minibatches
 bleu_every = 200
