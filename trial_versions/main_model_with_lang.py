@@ -244,6 +244,7 @@ class Lang(object):
 
         # Reinitialize dictionaries
         self.__word2idx = {}
+        self.word2count = {}
         self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3:'<UNK>'}
         self.n_words = 4 # Count default tokens
 
