@@ -756,7 +756,7 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
 ######################
 
 input_lang, output_lang, pairs = prepare_data(opt.lang1, opt.lang2, False, set_type="train")
-input_lang_dev, output_lang_dev, pairs_dev = read_langs(pt.lang1, opt.lang2, set_type="valid", term=opt.model_type, reverse=False, normalize=False)
+input_lang_dev, output_lang_dev, pairs_dev = read_langs(opt.lang1, opt.lang2, set_type="valid", term=opt.model_type, reverse=False, normalize=False)
 
 # TRIMMING DATA:
 
