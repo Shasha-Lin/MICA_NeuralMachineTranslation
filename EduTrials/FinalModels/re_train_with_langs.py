@@ -34,17 +34,20 @@ parser.add_argument('--out_dir', type=str, default="/scratch/eff254/NLP/MICA_Neu
 parser.add_argument('--experiment_name', type=str, default="exp", help="Original experiment name (As in comet name")
 parser.add_argument('--continue_from', type=int, default=None, help='From which epoch continue training? If None, from last detected. default = None')
 parser.add_argument('--rerunn_time', type=int, default=2, help='How many times have you been running? (Just for comet control)')
+parser.add_argument('--new_learning_rate', type=int, default=1, help='Adjust Learning rate? If >=1, it will be ignored')
 opt_rerun = parser.parse_args()
 
 ######## Load opt Object from before: ########
 opt = pickle.load(open("{}/{}/model_opt.p".format(opt_rerun.out_dir, opt_rerun.experiment_name), "rb"))
 opt.rerun = opt_rerun.rerunn_time
 
+if opt_rerun.new_learning_rate < 1: 
+    opt.learning_rate = opt_rerun.new_learning_rate
+
 # experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", project_name='MICA Final', log_code=True)
 experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", log_code=True) # Project name doesn't seem to be working :-( 
 hyper_params = vars(opt)
 experiment.log_multiple_params(hyper_params)
-
 
 ###########################
 #    1. Loss function     #
@@ -839,6 +842,12 @@ plot_losses = []
 print_loss_total = 0 # Reset every print_every
 plot_loss_total = 0 # Reset every plot_every
 
+if opt_rerun.new_learning_rate < 1: 
+
+    for param_group in encoder_optimizer.param_groups:
+        param_group['lr'] = new_learning_rate
+    for param_group in decoder_optimizer.param_groups:
+        param_group['lr'] = new_learning_rate
 
 ###############
 # 8. Modeling #
