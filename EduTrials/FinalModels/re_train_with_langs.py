@@ -35,6 +35,7 @@ parser.add_argument('--experiment_name', type=str, default="exp", help="Original
 parser.add_argument('--continue_from', type=int, default=None, help='From which epoch continue training? If None, from last detected. default = None')
 parser.add_argument('--rerunn_time', type=int, default=2, help='How many times have you been running? (Just for comet control)')
 parser.add_argument('--new_learning_rate', type=float, default=1, help='Adjust Learning rate? If >=1, it will be ignored')
+parser.add_argument('--new_scheduled_sampling_k', type=int, default=0, help='Overrides default sigmoid decay for TFR. If <=1, it will be ignored')
 opt_rerun = parser.parse_args()
 
 ######## Load opt Object from before: ########
@@ -43,6 +44,9 @@ opt.rerun = opt_rerun.rerunn_time
 
 if opt_rerun.new_learning_rate < 1: 
     opt.new_learning_rate = opt_rerun.new_learning_rate
+
+if opt_rerun.new_scheduled_sampling_k > 1:
+    opt.new_scheduled_sampling_k =  opt_rerun.new_scheduled_sampling_k
 
 # experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", project_name='MICA Final', log_code=True)
 experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", log_code=True) # Project name doesn't seem to be working :-( 
@@ -874,7 +878,10 @@ while epoch < opt.n_epochs:
     
     # teacher forcing ratio implemented with inverse sigmoid decay
     # ref: https://arxiv.org/pdf/1506.03099.pdf
-    teacher_forcing_ratio = opt.scheduled_sampling_k/(opt.scheduled_sampling_k+np.exp(epoch/opt.scheduled_sampling_k))
+    if opt_rerun.new_scheduled_sampling_k > 1:
+        teacher_forcing_ratio = opt_rerun.new_scheduled_sampling_k/(oopt_rerun.new_scheduled_sampling_k+np.exp(epoch/opt_rerun.new_scheduled_sampling_k))
+    else: 
+        teacher_forcing_ratio = opt.scheduled_sampling_k/(opt.scheduled_sampling_k+np.exp(epoch/opt.scheduled_sampling_k))
 
     # Run the train function
     loss, ec, dc = train(
@@ -898,19 +905,35 @@ while epoch < opt.n_epochs:
         evaluate_randomly(pairs_dev)
 
     if epoch % save_every == 0:
-        if opt_rerun.new_learning_rate < 1: 
-            print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-            torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
-            torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
-            torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
-            torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
 
+        if opt_rerun.new_scheduled_sampling_k  > 1:
+            if opt_rerun.new_learning_rate < 1: 
+                print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+                torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}_nlr_nss.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}_nlr_nss.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}_nlr_nss.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}_nlr_nss.pth".format(opt.out_dir, opt.experiment, epoch))
+
+            else:
+                print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+                torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}_nss.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}_nss.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}_nss.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}_nss.pth".format(opt.out_dir, opt.experiment, epoch))
         else:
-            print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-            torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-            torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-            torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-            torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+            if opt_rerun.new_learning_rate < 1: 
+                print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+                torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
+
+            else:
+                print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+                torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+                torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         
     if (epoch) % bleu_every == 0:
         blue_score = multi_blue_dev(pairs_dev)
