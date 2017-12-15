@@ -593,15 +593,25 @@ def evaluate_list_pairs(list_strings, term=opt.model_type):
     return output
 
 def export_as_list(original, translations): 
-    
-    with open("{}/{}/original.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
-        for sentence in original:
-            original_file.write(sentence + "\n")
-    
-    
-    with open("{}/{}/translations.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
-        for sentence in translations:
-            translations_file.write(sentence + "\n")
+
+    if opt_rerun.new_learning_rate < 1:
+        with open("{}/{}/original_nlr.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
+            for sentence in original:
+                original_file.write(sentence + "\n")
+        
+        
+        with open("{}/{}/translations_nlr.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
+            for sentence in translations:
+                translations_file.write(sentence + "\n")
+
+    else:
+        with open("{}/{}/original.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
+            for sentence in original:
+                original_file.write(sentence + "\n")
+                
+        with open("{}/{}/translations.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
+            for sentence in translations:
+                translations_file.write(sentence + "\n")        
         
 def run_perl(): 
     
@@ -888,11 +898,19 @@ while epoch < opt.n_epochs:
         evaluate_randomly(pairs_dev)
 
     if epoch % save_every == 0:
-        print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-        torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        if opt_rerun.new_learning_rate < 1: 
+            print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+            torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
+            torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
+            torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
+            torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
+
+        else:
+            print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+            torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+            torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+            torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+            torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         
     if (epoch) % bleu_every == 0:
         blue_score = multi_blue_dev(pairs_dev)
