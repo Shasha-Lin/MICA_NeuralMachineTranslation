@@ -42,7 +42,7 @@ opt = pickle.load(open("{}/{}/model_opt.p".format(opt_rerun.out_dir, opt_rerun.e
 opt.rerun = opt_rerun.rerunn_time
 
 if opt_rerun.new_learning_rate < 1: 
-    opt.learning_rate = opt_rerun.new_learning_rate
+    opt.new_learning_rate = opt_rerun.new_learning_rate
 
 # experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", project_name='MICA Final', log_code=True)
 experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", log_code=True) # Project name doesn't seem to be working :-( 
