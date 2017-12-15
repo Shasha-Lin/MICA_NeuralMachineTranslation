@@ -601,8 +601,7 @@ def export_as_list(original, translations):
     if opt_rerun.new_learning_rate < 1:
         with open("{}/{}/original_nlr.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
             for sentence in original:
-                original_file.write(sentence + "\n")
-        
+                original_file.write(sentence + "\n")      
         
         with open("{}/{}/translations_nlr.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
             for sentence in translations:
@@ -879,7 +878,7 @@ while epoch < opt.n_epochs:
     # teacher forcing ratio implemented with inverse sigmoid decay
     # ref: https://arxiv.org/pdf/1506.03099.pdf
     if opt_rerun.new_scheduled_sampling_k > 1:
-        teacher_forcing_ratio = opt_rerun.new_scheduled_sampling_k/(oopt_rerun.new_scheduled_sampling_k+np.exp(epoch/opt_rerun.new_scheduled_sampling_k))
+        teacher_forcing_ratio = opt_rerun.new_scheduled_sampling_k/(opt_rerun.new_scheduled_sampling_k+np.exp(epoch/opt_rerun.new_scheduled_sampling_k))
     else: 
         teacher_forcing_ratio = opt.scheduled_sampling_k/(opt.scheduled_sampling_k+np.exp(epoch/opt.scheduled_sampling_k))
 
