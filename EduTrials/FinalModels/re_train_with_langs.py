@@ -34,7 +34,7 @@ parser.add_argument('--out_dir', type=str, default="/scratch/eff254/NLP/MICA_Neu
 parser.add_argument('--experiment_name', type=str, default="exp", help="Original experiment name (As in comet name")
 parser.add_argument('--continue_from', type=int, default=None, help='From which epoch continue training? If None, from last detected. default = None')
 parser.add_argument('--rerunn_time', type=int, default=2, help='How many times have you been running? (Just for comet control)')
-parser.add_argument('--new_learning_rate', type=int, default=1, help='Adjust Learning rate? If >=1, it will be ignored')
+parser.add_argument('--new_learning_rate', type=float, default=1, help='Adjust Learning rate? If >=1, it will be ignored')
 opt_rerun = parser.parse_args()
 
 ######## Load opt Object from before: ########
