@@ -855,9 +855,9 @@ plot_loss_total = 0 # Reset every plot_every
 if opt_rerun.new_learning_rate < 1: 
 
     for param_group in encoder_optimizer.param_groups:
-        param_group['lr'] = new_learning_rate
+        param_group['lr'] = opt_rerun.new_learning_rate
     for param_group in decoder_optimizer.param_groups:
-        param_group['lr'] = new_learning_rate
+        param_group['lr'] = opt_rerun.new_learning_rate
 
 ###############
 # 8. Modeling #
