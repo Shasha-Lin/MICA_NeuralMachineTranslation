@@ -1,32 +1,23 @@
 ##  MICA_NeuralMachineTranslation
-Team MICA's attempt at NMT
+Team MICA's NMT
 
-Dataset: English to French: https://wit3.fbk.eu/mt.php?release=2016-01
+Millie Dwyer (mmd378); Eduardo Fiero (eff254); Akash Kadel (ak6201); Shasha Lin (sl4964)
 
-## Todo: 
-- Data Processing https://wit3.fbk.eu/mt.php?release=2016-01 : Eduardo
-  - Both models: BPE on source
-  - Model 1 Target: Use BPE
-  - Model 2 Target: Does not use BPE
+Original dataset: English to French: https://wit3.fbk.eu/mt.php?release=2016-01
+To access the data used in this project after pre-processing, you can download with an NYU account from: http://bit.ly/2AJ1BkP
 
-- Model 1: Encoder-Decoder With Attention & BPE 
-  - Adapt from Theano to pytorch : Akash
+## Pre-process
 
-- Model 2: Character-level Decoder 
-  - Adapt from Theano to pytorch : Millie
+We pre-processed the text by first normalizing punctuation and then tokenizing. All the relevant files are inside the folder "Preprocess", with it's own README file with references and explanation on how to use.
 
-- Next meeting: Thursday 
+## Trials
 
-## References:
-- Original BPE implementation: https://github.com/rsennrich/subword-nmt
-- Character level: https://github.com/nyu-dl/dl4mt-c2c
-- General Tutorial: https://github.com/nyu-dl/dl4mt-tutorial
-- This tutorial is supposed to be helpful (from  NLP reading list): https://devblogs.nvidia.com/parallelforall/introduction-neural-machine-translation-with-gpus/
-- Pytorch implementation of attention translation models https://github.com/spro/practical-pytorch/blob/master/seq2seq-translation/seq2seq-translation.ipynb
+The trials folder contain several trials to attempt runniung the Machine translation task.
 
----
-## Comet ML (account for everyone): 
-- email: eff254@nyu.edu 
-- user: edufierro
-- password: wearemica
-- API Key: 00Z9vIf4wOLZ0yrqzdwHqttv4
+## FinalModels
+
+The Final Models are in the FinalModels folder. Refer to the README file insde for instructions on how to run and specifications. 
+
+## Evaluations
+
+Final Evaluations for the 4 tasks at hand are inside the Evaluation folder as ipython notebooks. 
