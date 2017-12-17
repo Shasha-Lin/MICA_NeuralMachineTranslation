@@ -33,25 +33,16 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--out_dir', type=str, default="/scratch/eff254/NLP/MICA_NeuralMachineTranslation/EduTrials/FinalModels/checkpoints/", help="Directory where the states dicts are saved")
 parser.add_argument('--experiment_name', type=str, default="exp", help="Original experiment name (As in comet name")
 parser.add_argument('--continue_from', type=int, default=None, help='From which epoch continue training? If None, from last detected. default = None')
-parser.add_argument('--rerunn_time', type=int, default=2, help='How many times have you been running? (Just for comet control)')
-parser.add_argument('--new_learning_rate', type=float, default=1, help='Adjust Learning rate? If >=1, it will be ignored')
-parser.add_argument('--new_scheduled_sampling_k', type=int, default=0, help='Overrides default sigmoid decay for TFR. If <=1, it will be ignored')
 opt_rerun = parser.parse_args()
 
 ######## Load opt Object from before: ########
 opt = pickle.load(open("{}/{}/model_opt.p".format(opt_rerun.out_dir, opt_rerun.experiment_name), "rb"))
-opt.rerun = opt_rerun.rerunn_time
-
-if opt_rerun.new_learning_rate < 1: 
-    opt.new_learning_rate = opt_rerun.new_learning_rate
-
-if opt_rerun.new_scheduled_sampling_k > 1:
-    opt.new_scheduled_sampling_k =  opt_rerun.new_scheduled_sampling_k
 
 # experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", project_name='MICA Final', log_code=True)
 experiment = Experiment(api_key="00Z9vIf4wOLZ0yrqzdwHqttv4", log_code=True) # Project name doesn't seem to be working :-( 
 hyper_params = vars(opt)
 experiment.log_multiple_params(hyper_params)
+
 
 ###########################
 #    1. Loss function     #
@@ -187,8 +178,13 @@ def read_langs(lang1, lang2, set_type="train", term="txt", reverse=False, normal
     # Reverse pairs, make Lang instances
     if reverse:
         pairs = [list(reversed(p)) for p in pairs]
+        input_lang = Lang(lang2)
+        output_lang = Lang(lang1)
+    else:
+        input_lang = Lang(lang1)
+        output_lang = Lang(lang2)
 
-    return pairs
+    return input_lang, output_lang, pairs
 
 
 def filter_pairs(pairs, MIN_LENGTH, MAX_LENGTH):
@@ -204,14 +200,20 @@ def prepare_data(lang1_name, lang2_name, reverse=False, set_type="train"):
 
     # Get the source and target language class objects and the pairs (x_t, y_t)
 
-    pairs = read_langs(lang1_name, lang2_name, set_type=set_type, term=opt.model_type, reverse=reverse, normalize=False)
+    input_lang, output_lang, pairs = read_langs(lang1_name, lang2_name, set_type=set_type, term=opt.model_type, reverse=reverse, normalize=False)
     print("Read %d sentence pairs" % len(pairs))
 
     ## 2. MIN LENGTH & MAX LENGTH ????
     pairs = filter_pairs(pairs, opt.MIN_LENGTH, opt.MAX_LENGTH)
     print("Filtered to %d pairs" % len(pairs))
 
-    return pairs
+    print("Indexing words...")
+    for pair in pairs:
+        input_lang.index_words(pair[0])
+        output_lang.index_words(pair[1])
+
+    print('Indexed %d words in input language, %d words in output' % (input_lang.n_words, output_lang.n_words))
+    return input_lang, output_lang, pairs
 
 def indexes_from_sentence(lang, sentence):
     try:
@@ -597,24 +599,15 @@ def evaluate_list_pairs(list_strings, term=opt.model_type):
     return output
 
 def export_as_list(original, translations): 
-
-    if opt_rerun.new_learning_rate < 1:
-        with open("{}/{}/original_nlr.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
-            for sentence in original:
-                original_file.write(sentence + "\n")      
-        
-        with open("{}/{}/translations_nlr.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
-            for sentence in translations:
-                translations_file.write(sentence + "\n")
-
-    else:
-        with open("{}/{}/original.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
-            for sentence in original:
-                original_file.write(sentence + "\n")
-                
-        with open("{}/{}/translations.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
-            for sentence in translations:
-                translations_file.write(sentence + "\n")        
+    
+    with open("{}/{}/original.txt".format(opt.eval_dir, opt.experiment), 'w') as original_file:
+        for sentence in original:
+            original_file.write(sentence + "\n")
+    
+    
+    with open("{}/{}/translations.txt".format(opt.eval_dir, opt.experiment), 'w') as translations_file:
+        for sentence in translations:
+            translations_file.write(sentence + "\n")
         
 def run_perl(): 
     
@@ -736,11 +729,8 @@ def train(input_batches, input_lengths, target_batches, target_lengths, encoder,
 # 6. Data Processing #
 ######################
 
-pairs = prepare_data(opt.lang1, opt.lang2, False, set_type="train")
-pairs_dev = prepare_data(opt.lang1, opt.lang2, False, set_type="valid")
-
-input_lang = pickle.load(open("{}/{}/input_lang.p".format(opt_rerun.out_dir, opt_rerun.experiment_name), "rb"))
-output_lang = pickle.load(open("{}/{}/output_lang.p".format(opt_rerun.out_dir, opt_rerun.experiment_name), "rb"))
+input_lang, output_lang, pairs = prepare_data(opt.lang1, opt.lang2, False, set_type="train")
+input_lang_dev, output_lang_dev, pairs_dev = prepare_data(opt.lang1, opt.lang2, False, set_type="valid")
 
 # TRIMMING DATA:
 
@@ -855,12 +845,6 @@ plot_losses = []
 print_loss_total = 0 # Reset every print_every
 plot_loss_total = 0 # Reset every plot_every
 
-if opt_rerun.new_learning_rate < 1: 
-
-    for param_group in encoder_optimizer.param_groups:
-        param_group['lr'] = opt_rerun.new_learning_rate
-    for param_group in decoder_optimizer.param_groups:
-        param_group['lr'] = opt_rerun.new_learning_rate
 
 ###############
 # 8. Modeling #
@@ -877,10 +861,7 @@ while epoch < opt.n_epochs:
     
     # teacher forcing ratio implemented with inverse sigmoid decay
     # ref: https://arxiv.org/pdf/1506.03099.pdf
-    if opt_rerun.new_scheduled_sampling_k > 1:
-        teacher_forcing_ratio = opt_rerun.new_scheduled_sampling_k/(opt_rerun.new_scheduled_sampling_k+np.exp(epoch/opt_rerun.new_scheduled_sampling_k))
-    else: 
-        teacher_forcing_ratio = opt.scheduled_sampling_k/(opt.scheduled_sampling_k+np.exp(epoch/opt.scheduled_sampling_k))
+    teacher_forcing_ratio = opt.scheduled_sampling_k/(opt.scheduled_sampling_k+np.exp(epoch/opt.scheduled_sampling_k))
 
     # Run the train function
     loss, ec, dc = train(
@@ -904,35 +885,11 @@ while epoch < opt.n_epochs:
         evaluate_randomly(pairs_dev)
 
     if epoch % save_every == 0:
-
-        if opt_rerun.new_scheduled_sampling_k  > 1:
-            if opt_rerun.new_learning_rate < 1: 
-                print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-                torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}_nlr_nss.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}_nlr_nss.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}_nlr_nss.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}_nlr_nss.pth".format(opt.out_dir, opt.experiment, epoch))
-
-            else:
-                print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-                torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}_nss.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}_nss.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}_nss.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}_nss.pth".format(opt.out_dir, opt.experiment, epoch))
-        else:
-            if opt_rerun.new_learning_rate < 1: 
-                print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-                torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}_nlr.pth".format(opt.out_dir, opt.experiment, epoch))
-
-            else:
-                print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
-                torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
-                torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        print("checkpointing models at epoch {} to folder {}/{}".format(epoch, opt.out_dir, opt.experiment))
+        torch.save(encoder.state_dict(), "{}/{}/saved_encoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder.state_dict(), "{}/{}/saved_decoder_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(encoder_optimizer.state_dict(), "{}/{}/encoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
+        torch.save(decoder_optimizer.state_dict(), "{}/{}/decoder_optimizer_{}.pth".format(opt.out_dir, opt.experiment, epoch))
         
     if (epoch) % bleu_every == 0:
         blue_score = multi_blue_dev(pairs_dev)
