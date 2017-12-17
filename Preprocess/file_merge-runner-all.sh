@@ -7,7 +7,7 @@ code_dir="/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/MICA_Ne
 data_dir="/Users/eduardofierro/Google Drive/TercerSemetre/NLP/ProjectOwn/Data/Preprocess"
 
 ### folder to contain output folders (Model1_ready or Model2_ready)
-data_output_folder="Molde_ready2"
+data_output_folder="ModelCharzed2"
 
 
 for i in "train" "dev" "valid"
