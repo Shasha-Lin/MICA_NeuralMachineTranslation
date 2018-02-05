@@ -5,6 +5,7 @@ Millie Dwyer (mmd378); Eduardo Fiero (eff254); Akash Kadel (ak6201); Shasha Lin 
 
 - Original dataset: English to French: https://wit3.fbk.eu/mt.php?release=2016-01
 - To access the data used in this project after pre-processing, you can download with an NYU account from: http://bit.ly/2AJ1BkP
+- The link to our final paper is [here](https://drive.google.com/file/d/14yUtMJN1DwZgSUuKKVeaZTgvSWd0M-rH/view)
 
 ## Pre-process
 
